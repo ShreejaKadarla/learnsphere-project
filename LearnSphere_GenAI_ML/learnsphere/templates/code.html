@@ -1,0 +1,528 @@
+{% extends "base.html" %}
+{% block title %}Code Lab — LearnSphere{% endblock %}
+{% block content %}
+
+<style>
+/* ── Code Lab specific styles ─────────────────────────────────── */
+.cl-wrap        { max-width:1300px; margin:0 auto; padding:1.75rem 2rem 4rem; }
+.cl-header      { margin-bottom:1.5rem; }
+.cl-header h1   { font-family:var(--ff-serif); font-size:1.65rem; font-weight:700; color:var(--text); margin-bottom:.25rem; }
+.cl-header p    { font-size:.84rem; color:var(--text2); }
+
+.cl-grid        { display:grid; grid-template-columns:1fr 1fr; gap:1.4rem; align-items:start; }
+
+/* ── Panel card ── */
+.cl-card        { background:var(--bg3); border:1px solid var(--border); border-radius:var(--r2); overflow:hidden; }
+.cl-card-head   { display:flex; align-items:center; padding:.75rem 1.2rem; border-bottom:1px solid var(--border); gap:.35rem; }
+.cl-card-title  { font-family:var(--ff-serif); font-size:.95rem; font-weight:700; color:var(--text); margin-left:.1rem; }
+
+/* ── Input side tabs ── */
+/* IMPORTANT: use class "itab" and "ipane" so they are 100% isolated from
+   the result panel — switchPanel() only touches these, never the result */
+.itab {
+  padding:.28rem .8rem; border-radius:6px;
+  border:1px solid transparent; background:none;
+  color:var(--text2); font-size:.8rem; font-weight:600;
+  cursor:pointer; font-family:var(--ff-sans); transition:all .14s;
+}
+.itab.active { background:var(--accent-glow); border-color:var(--border2); color:var(--accent); }
+
+.ipane         { padding:1.2rem; display:none; }
+.ipane.active  { display:block; }
+
+.cl-label      { display:block; font-size:.7rem; font-weight:700; text-transform:uppercase;
+                 letter-spacing:.05em; color:var(--text2); margin-bottom:.45rem; }
+.cl-textarea   { width:100%; padding:.65rem .85rem; border-radius:8px;
+                 background:var(--bg2); border:1px solid var(--border);
+                 color:var(--text); font-family:var(--ff-sans); font-size:.84rem;
+                 outline:none; resize:vertical; min-height:110px; line-height:1.65;
+                 transition:border-color .15s; margin-bottom:.85rem; }
+.cl-textarea:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow); }
+.cl-textarea.tall  { min-height:200px; font-family:var(--ff-mono); font-size:.78rem; }
+
+.cl-templates  { display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; margin-bottom:.85rem; }
+.cl-tpl-lbl    { font-size:.7rem; color:var(--text2); white-space:nowrap; }
+.cl-tpl-btn    { padding:.18rem .58rem; border-radius:20px; background:var(--bg2);
+                 border:1px solid var(--border); color:var(--text2); font-size:.7rem;
+                 cursor:pointer; font-family:var(--ff-sans); transition:all .14s; }
+.cl-tpl-btn:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-glow); }
+
+.cl-submit     { width:100%; padding:.65rem; border-radius:9px; background:var(--accent);
+                 border:none; color:#fff; font-family:var(--ff-serif); font-size:.92rem;
+                 font-weight:700; cursor:pointer; display:flex; align-items:center;
+                 justify-content:center; gap:.5rem; transition:all .18s; }
+.cl-submit:hover    { filter:brightness(1.08); transform:translateY(-1px); }
+.cl-submit:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+
+/* ── Result panel ── 
+   Uses class "cl-result-body" — NOT "panel-body" so switchPanel NEVER touches it */
+.cl-result-body { padding:1.2rem; min-height:400px; overflow-y:auto; }
+
+/* Empty / loading states */
+.cl-empty   { display:flex; flex-direction:column; align-items:center; justify-content:center;
+              min-height:300px; text-align:center; color:var(--text2); gap:.7rem; }
+.cl-empty h3 { font-family:var(--ff-serif); font-size:1rem; color:var(--text); }
+.cl-loading  { display:flex; flex-direction:column; align-items:center; justify-content:center;
+               min-height:300px; gap:1rem; color:var(--text2); text-align:center; }
+.cl-loading small { color:var(--text2); opacity:.7; }
+
+/* ── Score header (inside result, not in nav) ── */
+.cl-score-wrap  { display:flex; align-items:center; gap:.95rem; padding:.85rem 1.1rem;
+                  background:var(--bg2); border:1px solid var(--border);
+                  border-radius:var(--r2); margin-bottom:1.1rem; }
+.cl-score-ring  { width:56px; height:56px; border-radius:50%; border:4px solid;
+                  flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.cl-score-val   { font-family:var(--ff-serif); font-size:1.4rem; font-weight:700; color:var(--text); }
+.cl-score-right { flex:1; }
+.cl-score-title { font-size:.82rem; font-weight:700; color:var(--text); margin-bottom:.3rem; }
+.cl-score-bar   { height:6px; background:var(--bg4); border-radius:3px; overflow:hidden; margin-bottom:.2rem; }
+.cl-score-fill  { height:100%; border-radius:3px; width:0; transition:width .8s ease; }
+.cl-score-lbl   { font-size:.7rem; color:var(--text2); }
+
+/* ── Result tabs (scoped inside result panel) ── */
+/* Use class "rtab" / "rpane" — completely separate from itab/ipane */
+.rtabs   { display:flex; gap:.3rem; margin-bottom:1rem; border-bottom:1px solid var(--border); padding-bottom:.6rem; }
+.rtab    { padding:.28rem .78rem; border-radius:6px; border:1px solid transparent;
+           background:none; color:var(--text2); font-size:.78rem; font-weight:600;
+           cursor:pointer; font-family:var(--ff-sans); transition:all .14s; }
+.rtab.active { background:var(--accent-glow); border-color:var(--border2); color:var(--accent); }
+.rpane       { display:none; }
+.rpane.active { display:block; animation:fadeUp .22s ease; }
+
+/* Code block styling */
+.cl-code-bar  { display:flex; justify-content:space-between; align-items:center;
+                background:var(--bg2); padding:.5rem .95rem; border-radius:8px 8px 0 0;
+                border:1px solid var(--border); border-bottom:none; font-size:.74rem; color:var(--accent); font-weight:600; }
+.cl-code-bar + pre { border-radius:0 0 8px 8px; margin:0; border:1px solid var(--border); border-top:none; }
+.cl-copy-btn  { background:none; border:none; color:var(--text2); font-size:.72rem;
+                cursor:pointer; font-family:var(--ff-sans); transition:color .14s; }
+.cl-copy-btn:hover { color:var(--accent); }
+.cl-libs-badge { font-size:.66rem; color:var(--text2); background:var(--bg3);
+                 padding:.1rem .38rem; border-radius:4px; border:1px solid var(--border); }
+
+/* Expected output */
+.cl-output      { margin-top:.75rem; padding:.65rem .9rem; background:var(--bg2);
+                  border:1px solid var(--border); border-radius:8px; }
+.cl-output-lbl  { font-size:.67rem; color:var(--text2); font-weight:700; display:block;
+                  margin-bottom:.32rem; text-transform:uppercase; letter-spacing:.04em; }
+.cl-output-pre  { font-family:var(--ff-mono); font-size:.77rem; color:var(--text2); white-space:pre-wrap; }
+
+/* Explanation box */
+.cl-explain-box { padding:.9rem 1rem; background:var(--bg2); border-radius:8px; }
+.cl-explain-box h4 { font-size:.85rem; color:var(--text); margin-bottom:.5rem; font-family:var(--ff-serif); }
+.cl-explain-box p  { font-size:.83rem; color:var(--text2); line-height:1.75; }
+
+/* Tips boxes */
+.cl-tip-box, .cl-warn-box { padding:.75rem .95rem; background:var(--bg2); border-radius:8px; margin-bottom:.7rem; }
+.cl-tip-box h4, .cl-warn-box h4 { font-size:.82rem; font-weight:700; color:var(--text); margin-bottom:.4rem; }
+.cl-tip-box p  { font-size:.81rem; color:var(--text2); }
+.cl-warn-box ul { list-style:none; }
+.cl-warn-box li { font-size:.8rem; color:var(--text2); padding:.18rem 0; }
+.cl-warn-box li::before { content:'⚠ '; }
+
+/* Assessment */
+.cl-assess      { padding:.75rem .9rem; background:var(--bg2); border-radius:8px; margin-bottom:1rem; }
+.cl-assess h4   { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text2); margin-bottom:.4rem; }
+.cl-assess p    { font-size:.84rem; color:var(--text); line-height:1.65; }
+
+/* Error items */
+.cl-err-list    { margin-bottom:1rem; }
+.cl-err-list h4 { font-family:var(--ff-serif); font-size:.9rem; margin-bottom:.55rem; color:var(--text); }
+.cl-err-item    { padding:.62rem .88rem; background:rgba(239,68,68,.05); border:1px solid rgba(239,68,68,.15); border-radius:8px; margin-bottom:.45rem; }
+.cl-err-line    { font-size:.66rem; background:rgba(239,68,68,.12); color:var(--danger); padding:.08rem .35rem; border-radius:4px; margin-right:.38rem; }
+.cl-err-issue   { font-size:.82rem; color:var(--text2); margin:.2rem 0; }
+.cl-err-fix     { font-size:.76rem; color:var(--text2); }
+.cl-no-errors   { padding:.62rem .88rem; background:rgba(16,185,129,.07); border:1px solid rgba(16,185,129,.2); border-radius:8px; color:var(--success); font-size:.82rem; margin-bottom:1rem; }
+
+/* Improvements */
+.cl-improve     { margin-bottom:1rem; }
+.cl-improve h4  { font-family:var(--ff-serif); font-size:.9rem; margin-bottom:.5rem; color:var(--text); }
+.cl-improve li  { font-size:.81rem; color:var(--text2); padding:.24rem 0; border-bottom:1px solid var(--border); list-style:none; }
+.cl-improve li:last-child { border:none; }
+
+/* Best practices */
+.cl-practices   { margin-bottom:1rem; }
+.cl-practices h4 { font-family:var(--ff-serif); font-size:.9rem; margin-bottom:.5rem; color:var(--text); }
+.cl-prac-grid   { display:flex; flex-wrap:wrap; gap:.35rem; }
+.cl-prac-item   { padding:.22rem .58rem; background:var(--bg2); border:1px solid var(--border); border-radius:6px; font-size:.7rem; color:var(--text2); }
+
+@media(max-width:900px){ .cl-grid{ grid-template-columns:1fr; } }
+@media(max-width:700px){ .cl-wrap{ padding:1rem 1rem 3rem; } }
+</style>
+
+<div class="cl-wrap animate-in">
+  <div class="cl-header">
+    <h1>🧪 Code Lab</h1>
+    <p>Generate ML code, analyze your code, and get intelligent feedback</p>
+  </div>
+
+  <div class="cl-grid">
+
+    <!-- ════════════════════════════════════════════════════════
+         LEFT: Input panel
+         Uses classes  itab / ipane  — completely isolated
+         ════════════════════════════════════════════════════════ -->
+    <div class="cl-card">
+      <div class="cl-card-head">
+        <!-- itab: only these are toggled by switchInput() -->
+        <button class="itab active" onclick="switchInput(this,'ipane-generate')">Generate Code</button>
+        <button class="itab"        onclick="switchInput(this,'ipane-analyze')">Analyze Code</button>
+      </div>
+
+      <!-- Generate pane -->
+      <div id="ipane-generate" class="ipane active">
+        <label class="cl-label">What ML code do you want to generate?</label>
+        <textarea id="generateQuery" class="cl-textarea"
+          placeholder="e.g. 'Implement a neural network for MNIST using PyTorch'
+'Random Forest with cross-validation on Iris'
+'K-Means clustering from scratch'"></textarea>
+
+        <div class="cl-templates">
+          <span class="cl-tpl-lbl">Quick:</span>
+          <button class="cl-tpl-btn" onclick="setQuery('Linear Regression from scratch in Python')">Linear Regression</button>
+          <button class="cl-tpl-btn" onclick="setQuery('Neural Network with backpropagation from scratch')">Neural Network</button>
+          <button class="cl-tpl-btn" onclick="setQuery('K-Means Clustering implementation')">K-Means</button>
+          <button class="cl-tpl-btn" onclick="setQuery('Decision Tree Classifier with scikit-learn')">Decision Tree</button>
+          <button class="cl-tpl-btn" onclick="setQuery('LSTM for time series prediction')">LSTM</button>
+        </div>
+
+        <button class="cl-submit" id="genBtn" onclick="doGenerate()">
+          <span id="genBtnTxt">⚡ Generate Code</span>
+        </button>
+      </div>
+
+      <!-- Analyze pane -->
+      <div id="ipane-analyze" class="ipane">
+        <label class="cl-label">Paste your Python ML code for analysis:</label>
+        <textarea id="analyzeCode" class="cl-textarea tall"
+          placeholder="# Paste your Python ML code here
+import numpy as np
+from sklearn.linear_model import LinearRegression
+
+X = [[1],[2],[3]]
+y = [1,2,3]
+model = LinearRegression()
+model.fit(X, y)
+print(model.coef_)"></textarea>
+
+        <button class="cl-submit" id="analyzeBtn" onclick="doAnalyze()">
+          <span id="analyzeBtnTxt">🔍 Analyze Code</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════
+         RIGHT: Result panel
+         Uses class  cl-result-body  — switchInput() NEVER touches this
+         ════════════════════════════════════════════════════════ -->
+    <div class="cl-card">
+      <div class="cl-card-head">
+        <span class="cl-card-title">Results</span>
+      </div>
+      <!-- cl-result-body is NOT panel-body — safe from switchInput() -->
+      <div class="cl-result-body" id="codeResult">
+        <div class="cl-empty">
+          <div style="font-size:3rem">💡</div>
+          <h3>Results appear here</h3>
+          <p style="font-size:.82rem">Generate code or paste code for analysis</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   ISOLATED TAB SWITCHING
+   switchInput() only touches .itab and .ipane elements
+   — it NEVER touches the result panel
+   ═══════════════════════════════════════════════════════════════ */
+function switchInput(btn, paneId) {
+  document.querySelectorAll('.itab').forEach(function(t){ t.classList.remove('active'); });
+  document.querySelectorAll('.ipane').forEach(function(p){ p.classList.remove('active'); });
+  btn.classList.add('active');
+  document.getElementById(paneId).classList.add('active');
+}
+
+function setQuery(q) {
+  document.getElementById('generateQuery').value = q;
+  // Auto-switch to generate pane
+  var genBtn = document.querySelector('.itab:first-child');
+  if (genBtn) switchInput(genBtn, 'ipane-generate');
+}
+
+function escHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function setResult(html) {
+  document.getElementById('codeResult').innerHTML = html;
+}
+
+function setBtnLoading(btnId, txtId, loadingText) {
+  var btn = document.getElementById(btnId);
+  var txt = document.getElementById(txtId);
+  btn.disabled = true;
+  txt.innerHTML = '<span class="btn-spinner" style="width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle;margin-right:.4rem"></span>' + loadingText;
+}
+
+function resetBtn(btnId, txtId, label) {
+  var btn = document.getElementById(btnId);
+  var txt = document.getElementById(txtId);
+  btn.disabled = false;
+  txt.textContent = label;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GENERATE
+   ═══════════════════════════════════════════════════════════════ */
+async function doGenerate() {
+  var query = document.getElementById('generateQuery').value.trim();
+  if (!query) { alert('Please describe the ML code you want to generate.'); return; }
+
+  setBtnLoading('genBtn', 'genBtnTxt', 'Generating…');
+  setResult('<div class="cl-loading"><div class="spinner"></div><p>Generating code for: <strong>' + escHtml(query) + '</strong><br><small>This may take 15–25 seconds…</small></p></div>');
+
+  try {
+    var res  = await fetch('/api/generate_code', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({query: query})
+    });
+    var data = await res.json();
+    if (data.success) {
+      renderGenerated(data.data);
+    } else {
+      renderError('Generation Failed', data.error, 'doGenerate()');
+    }
+  } catch(e) {
+    renderError('Network Error', e.message, 'doGenerate()');
+  }
+  resetBtn('genBtn', 'genBtnTxt', '⚡ Generate Code');
+}
+
+function renderGenerated(d) {
+  var tabsHtml =
+    '<div class="rtabs">'
+    + '<button class="rtab active" onclick="switchRTab(this,\'rt-code\')">Code</button>'
+    + '<button class="rtab"        onclick="switchRTab(this,\'rt-explain\')">Explanation</button>'
+    + '<button class="rtab"        onclick="switchRTab(this,\'rt-tips\')">Tips & Mistakes</button>'
+    + '</div>';
+
+  /* Code tab */
+  var libsBadge = (d.libraries_needed && d.libraries_needed.length)
+    ? '<span class="cl-libs-badge">' + escHtml(d.libraries_needed.join(', ')) + '</span>' : '';
+
+  var codeTab =
+    '<div id="rt-code" class="rpane active">'
+    + '<div class="cl-code-bar"><span>Python</span>'
+    + '<div style="display:flex;gap:.5rem;align-items:center">' + libsBadge
+    + '<button class="cl-copy-btn" onclick="copyCode(this)">Copy</button></div></div>'
+    + '<pre><code class="language-python">' + escHtml(d.code || '') + '</code></pre>'
+    + (d.expected_output
+        ? '<div class="cl-output"><span class="cl-output-lbl">Expected Output</span>'
+          + '<pre class="cl-output-pre">' + escHtml(d.expected_output) + '</pre></div>'
+        : '')
+    + '</div>';
+
+  /* Explanation tab */
+  var explainTab =
+    '<div id="rt-explain" class="rpane">'
+    + '<div class="cl-explain-box">'
+    + '<h4>Step-by-Step Explanation</h4>'
+    + '<p>' + escHtml(d.explanation || 'See the code comments for details.') + '</p>'
+    + '</div></div>';
+
+  /* Tips tab */
+  var mistakesHtml = '';
+  if (d.common_mistakes && d.common_mistakes.length) {
+    mistakesHtml = '<div class="cl-warn-box"><h4>⚠️ Common Mistakes</h4><ul>'
+      + d.common_mistakes.map(function(m){ return '<li>' + escHtml(m) + '</li>'; }).join('')
+      + '</ul></div>';
+  }
+  var tipsTab =
+    '<div id="rt-tips" class="rpane">'
+    + (d.variations ? '<div class="cl-tip-box"><h4>🔧 Variations & Extensions</h4><p>' + escHtml(d.variations) + '</p></div>' : '')
+    + mistakesHtml
+    + '</div>';
+
+  setResult(
+    '<div style="animation:fadeUp .3s ease both">'
+    + '<p style="font-family:var(--ff-serif);font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:1rem">'
+    + escHtml(d.title || 'Generated Code') + '</p>'
+    + tabsHtml + codeTab + explainTab + tipsTab
+    + '</div>'
+  );
+
+  /* Highlight all code blocks inside result panel only */
+  document.querySelectorAll('#codeResult pre code').forEach(function(el){ hljs.highlightElement(el); });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ANALYZE
+   ═══════════════════════════════════════════════════════════════ */
+async function doAnalyze() {
+  var code = document.getElementById('analyzeCode').value.trim();
+  if (!code) { alert('Please paste some Python code to analyze.'); return; }
+
+  setBtnLoading('analyzeBtn', 'analyzeBtnTxt', 'Analyzing…');
+  setResult('<div class="cl-loading"><div class="spinner"></div><p>Analyzing your code…<br><small>This may take 15–25 seconds…</small></p></div>');
+
+  try {
+    var res  = await fetch('/api/analyze_code', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({code: code})
+    });
+    var data = await res.json();
+    if (data.success) {
+      renderAnalysis(data.data);
+    } else {
+      renderError('Analysis Failed', data.error, 'doAnalyze()');
+    }
+  } catch(e) {
+    renderError('Network Error', e.message, 'doAnalyze()');
+  }
+  resetBtn('analyzeBtn', 'analyzeBtnTxt', '🔍 Analyze Code');
+}
+
+function renderAnalysis(d) {
+  var score      = parseInt(d.score) || 70;
+  var scoreColor = score >= 80 ? 'var(--success)' : score >= 60 ? 'var(--warn)' : 'var(--danger)';
+
+  /* Errors section */
+  var errorsHtml = '';
+  if (d.errors && d.errors.length) {
+    errorsHtml = '<div class="cl-err-list"><h4>🐛 Issues Found (' + d.errors.length + ')</h4>'
+      + d.errors.map(function(e){
+          return '<div class="cl-err-item">'
+            + (e.line ? '<span class="cl-err-line">Line ' + e.line + '</span>' : '')
+            + '<p class="cl-err-issue">' + escHtml(e.issue) + '</p>'
+            + (e.fix ? '<div class="cl-err-fix">Fix: <code>' + escHtml(e.fix) + '</code></div>' : '')
+            + '</div>';
+        }).join('')
+      + '</div>';
+  } else {
+    errorsHtml = '<div class="cl-no-errors">✅ No major issues found!</div>';
+  }
+
+  /* Improvements */
+  var impHtml = '';
+  if (d.improvements && d.improvements.length) {
+    impHtml = '<div class="cl-improve"><h4>💡 Improvements</h4><ul>'
+      + d.improvements.map(function(i){ return '<li>' + escHtml(i) + '</li>'; }).join('')
+      + '</ul></div>';
+  }
+
+  /* Best practices */
+  var practHtml = '';
+  if (d.best_practices && d.best_practices.length) {
+    practHtml = '<div class="cl-practices"><h4>📋 Best Practices</h4><div class="cl-prac-grid">'
+      + d.best_practices.map(function(p){ return '<div class="cl-prac-item">✓ ' + escHtml(p) + '</div>'; }).join('')
+      + '</div></div>';
+  }
+
+  /* Optimised code */
+  var optHtml = '';
+  if (d.optimized_code) {
+    optHtml = '<div style="margin-top:1.2rem">'
+      + '<div class="cl-code-bar"><span>✨ Optimised Version</span>'
+      + '<button class="cl-copy-btn" onclick="copyCode(this)">Copy</button></div>'
+      + '<pre><code class="language-python">' + escHtml(d.optimized_code) + '</code></pre>'
+      + '</div>';
+  }
+
+  /* FIX: score ring is INSIDE the result HTML so it exists in DOM before animation */
+  var html =
+    '<div style="animation:fadeUp .3s ease both">'
+
+    /* Score ring — rendered inside result box, not in header */
+    + '<div class="cl-score-wrap">'
+    + '<div class="cl-score-ring" id="clScoreRing" style="border-color:' + scoreColor + '">'
+    + '<span class="cl-score-val" id="clScoreVal">0</span>'
+    + '</div>'
+    + '<div class="cl-score-right">'
+    + '<div class="cl-score-title">Code Quality Score</div>'
+    + '<div class="cl-score-bar"><div class="cl-score-fill" id="clScoreBar" style="background:' + scoreColor + '"></div></div>'
+    + '<span class="cl-score-lbl">' + score + ' / 100</span>'
+    + '</div></div>'
+
+    /* Assessment */
+    + '<div class="cl-assess"><h4>Overall Assessment</h4>'
+    + '<p>' + escHtml(d.overall_assessment || '') + '</p></div>'
+
+    + errorsHtml + impHtml + practHtml + optHtml
+    + '</div>';
+
+  setResult(html);
+
+  /* FIX: animate score AFTER setResult() so #clScoreVal and #clScoreBar exist in DOM */
+  var current = 0;
+  var interval = setInterval(function(){
+    current = Math.min(current + 2, score);
+    var valEl = document.getElementById('clScoreVal');
+    var barEl = document.getElementById('clScoreBar');
+    if (valEl) valEl.textContent = current;
+    if (barEl) barEl.style.width = current + '%';
+    if (current >= score) clearInterval(interval);
+  }, 18);
+
+  document.querySelectorAll('#codeResult pre code').forEach(function(el){ hljs.highlightElement(el); });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESULT TAB SWITCHING  (scoped to #codeResult only)
+   Uses classes  rtab / rpane — zero overlap with itab / ipane
+   ═══════════════════════════════════════════════════════════════ */
+function switchRTab(btn, paneId) {
+  /* Scope querySelectorAll inside the result box only */
+  var box = document.getElementById('codeResult');
+  box.querySelectorAll('.rtab').forEach(function(t){ t.classList.remove('active'); });
+  box.querySelectorAll('.rpane').forEach(function(p){ p.classList.remove('active'); });
+  btn.classList.add('active');
+  var el = document.getElementById(paneId);
+  if (el) el.classList.add('active');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   COPY BUTTON
+   FIX: walk from button → parent cl-code-bar → next sibling pre → code
+   ═══════════════════════════════════════════════════════════════ */
+function copyCode(btn) {
+  var bar  = btn.closest('.cl-code-bar');
+  if (!bar) return;
+  var pre  = bar.nextElementSibling;   /* the <pre> tag */
+  if (!pre) return;
+  var code = pre.querySelector('code');
+  var text = code ? code.textContent : pre.textContent;
+  navigator.clipboard.writeText(text).then(function(){
+    btn.textContent = 'Copied!';
+    setTimeout(function(){ btn.textContent = 'Copy'; }, 2000);
+  }).catch(function(){
+    btn.textContent = 'Error';
+    setTimeout(function(){ btn.textContent = 'Copy'; }, 2000);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ERROR DISPLAY
+   ═══════════════════════════════════════════════════════════════ */
+function renderError(title, msg, retryCall) {
+  setResult(
+    '<div class="error-card">'
+    + '<div style="font-size:2.5rem">⚠️</div>'
+    + '<h3>' + escHtml(title) + '</h3>'
+    + '<p style="font-size:.84rem">' + escHtml(msg) + '</p>'
+    + '<p style="font-size:.75rem;color:var(--text2);margin-top:.5rem">'
+    + 'Ensure GROQ_API_KEY is set. Free key at '
+    + '<a href="https://console.groq.com" target="_blank" style="color:var(--accent)">console.groq.com</a></p>'
+    + '<button onclick="' + retryCall + '" class="btn btn-ghost" style="margin-top:1rem">↺ Try Again</button>'
+    + '</div>'
+  );
+}
+</script>
+{% endblock %}

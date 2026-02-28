@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}Lecture — LearnSphere{% endblock %}
+{% block content %}
+<div class="lecture-layout">
+    <!-- Sidebar -->
+    <div class="lec-sidebar" id="lecSidebar">
+        <div class="lec-sidebar-header">
+            <button class="back-btn" onclick="goBack()">← Course</button>
+        </div>
+        <div id="sidebarLectures"></div>
+    </div>
+
+    <!-- Main -->
+    <div class="lec-main" id="lecMain">
+        <div class="loading-card" style="min-height:60vh"><div class="spinner"></div><p>Loading lecture...</p></div>
+    </div>
+
+    <!-- AI Panel -->
+    <div class="ai-panel" id="aiPanel">
+        <div class="ai-panel-header">
+            <span>🤖 AI Tutor</span>
+            <button onclick="toggleAI()" class="ai-toggle">×</button>
+        </div>
+        <div class="ai-chat-body" id="aiChatBody">
+            <div class="chat-msg ai">👋 I'm your AI tutor for this lecture! Ask me anything about the content, or click "AI Explain" to get a personalized explanation.</div>
+        </div>
+        <div class="ai-chat-input">
+            <input type="text" id="aiInput" placeholder="Ask about this lecture..." onkeydown="if(event.key==='Enter')sendAI()">
+            <button onclick="sendAI()">→</button>
+        </div>
+    </div>
+</div>
+
+<button class="ai-fab" onclick="toggleAI()" id="aiFab">🤖</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+const lectureId = '{{ lecture_id }}';
+let currentData = null;
+let chatHistory = [];
+let aiOpen = false;
+
+async function load() {
+    const data = await fetch(`/api/lectures/${lectureId}`).then(r=>r.json());
+    currentData = data;
+    renderSidebar(data);
+    renderLecture(data);
+}
+
+function goBack() {
+    if (currentData && currentData.lecture) {
+        window.location = `/student/course/${currentData.lecture.course_id}`;
+    } else {
+        history.back();
+    }
+}
+
+function renderSidebar(data) {
+    const lecs = data.all_lectures || [];
+    document.getElementById('sidebarLectures').innerHTML = lecs.map((l,i) => `
+        <a href="/student/lecture/${l.id}" class="sidebar-lec-item ${l.id===lectureId?'active':''}">
+            <span class="slec-num">${i+1}</span>
+            <span class="slec-title">${l.title}</span>
+        </a>`).join('');
+}
+
+function renderLecture(data) {
+    const l = data.lecture;
+    const content = renderMarkdown(l.content || '');
+    document.getElementById('lecMain').innerHTML = `
+        <div class="lec-content-wrap animate-in">
+            <div class="lec-content-header">
+                <div class="lec-breadcrumb">Lecture ${data.all_lectures?.findIndex(x=>x.id===lectureId)+1||''} of ${data.all_lectures?.length||''}</div>
+                <h1 class="lec-title">${l.title}</h1>
+                <div class="lec-meta">
+                    <span>⏱ ${l.duration_mins} min</span>
+                    <span class="lec-type-badge">${l.lecture_type==='video'?'🎥 Video':'📄 Reading'}</span>
+                    ${data.completed?'<span class="done-badge">✅ Completed</span>':''}
+                </div>
+                <div class="lec-actions">
+                    <button onclick="aiExplain()" class="btn-sm btn-ai">🤖 AI Explain</button>
+                    <button onclick="speakContent()" class="btn-sm btn-ghost" id="speakBtn">🔊 Listen</button>
+                    <button onclick="showNotes()" class="btn-sm btn-ghost">📝 Notes</button>
+                    ${!data.completed?`<button onclick="markDone()" class="btn-sm btn-success" id="doneBtn">✅ Mark Complete</button>`:''}
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="lec-body">
+                ${l.video_url ? `<div class="video-wrap"><iframe src="${l.video_url}" frameborder="0" allowfullscreen></iframe></div>` : ''}
+                <div class="lec-text">${content}</div>
+
+                ${l.code_example ? `
+                <div class="code-section">
+                    <div class="code-sec-header">
+                        <span>💻 Code Example</span>
+                        <button onclick="copyCode(this)" class="copy-btn">Copy</button>
+                    </div>
+                    <pre><code class="language-python">${escHtml(l.code_example)}</code></pre>
+                </div>` : ''}
+            </div>
+
+            <!-- Notes -->
+            <div class="notes-panel" id="notesPanel" style="display:none">
+                <h4>📝 My Notes</h4>
+                <textarea id="notesText" class="notes-textarea" placeholder="Write your notes here...">${data.note||''}</textarea>
+                <button onclick="saveNotes()" class="btn btn-primary btn-sm-full">Save Notes</button>
+                <span id="notesSaved" style="color:#10B981;font-size:0.8rem;display:none">✓ Saved</span>
+            </div>
+
+            <!-- Navigation -->
+            <div class="lec-nav">
+                ${data.prev_id ? `<a href="/student/lecture/${data.prev_id}" class="btn btn-ghost">← Previous</a>` : '<span></span>'}
+                ${data.next_id ? `<a href="/student/lecture/${data.next_id}" class="btn btn-primary">Next Lecture →</a>` : '<div style="color:#10B981;font-weight:700">🎉 Course Complete!</div>'}
+            </div>
+        </div>`;
+
+    document.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
+}
+
+function renderMarkdown(text) {
+    return text
+        .replace(/^## (.+)$/gm, '<h2 class="md-h2">$1</h2>')
+        .replace(/^### (.+)$/gm, '<h3 class="md-h3">$1</h3>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
+        .replace(/^```[\w]*\n([\s\S]*?)```$/gm, '<pre><code class="language-python">$1</code></pre>')
+        .replace(/^\- (.+)$/gm, '<li class="md-li">$1</li>')
+        .replace(/^(\d+)\. (.+)$/gm, '<li class="md-li"><span class="md-num">$1</span> $2</li>')
+        .replace(/\n\n/g, '</p><p class="md-p">')
+        .replace(/^(?!<[h|l|p|p])/gm, '<p class="md-p">')
+        .replace(/<\/p>\s*<p class="md-p">(<[hl])/g, '$1');
+}
+
+async function aiExplain() {
+    toggleAI(true);
+    const l = currentData.lecture;
+    addChat('user', `Explain "${l.title}" to me`);
+    addChat('ai', '...');
+    const res = await fetch('/api/ai_explain_lecture', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({title: l.title, content: l.content})
+    });
+    const data = await res.json();
+    document.getElementById('aiChatBody').lastChild.remove();
+    addChat('ai', data.success ? data.response : 'Sorry, error occurred.');
+}
+
+async function sendAI() {
+    const input = document.getElementById('aiInput');
+    const msg = input.value.trim();
+    if (!msg) return;
+    input.value = '';
+    addChat('user', msg);
+    chatHistory.push({role:'user', content: msg});
+    addChat('ai', '...');
+    const res = await fetch('/api/chat', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({message: msg + ` (Context: lecture about ${currentData.lecture.title})`, history: chatHistory})
+    });
+    const data = await res.json();
+    document.getElementById('aiChatBody').lastChild.remove();
+    const reply = data.success ? data.response : 'Error occurred';
+    addChat('ai', reply);
+    chatHistory.push({role:'assistant', content: reply});
+}
+
+function addChat(role, text) {
+    const body = document.getElementById('aiChatBody');
+    const div = document.createElement('div');
+    div.className = `chat-msg ${role}`;
+    div.textContent = text;
+    body.appendChild(div);
+    body.scrollTop = body.scrollHeight;
+}
+
+function toggleAI(open) {
+    const panel = document.getElementById('aiPanel');
+    aiOpen = open !== undefined ? open : !aiOpen;
+    panel.classList.toggle('open', aiOpen);
+}
+
+function speakContent() {
+    const btn = document.getElementById('speakBtn');
+    if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel(); btn.textContent = '🔊 Listen'; return;
+    }
+    const text = currentData.lecture.content?.replace(/[#*`\-]/g,'').slice(0,2000) || '';
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 0.9;
+    utter.onend = () => btn.textContent = '🔊 Listen';
+    btn.textContent = '⏹ Stop';
+    window.speechSynthesis.speak(utter);
+}
+
+function showNotes() {
+    const panel = document.getElementById('notesPanel');
+    panel.style.display = panel.style.display==='none' ? 'block' : 'none';
+}
+
+async function saveNotes() {
+    const content = document.getElementById('notesText').value;
+    await fetch('/api/save_note', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({lecture_id: lectureId, content})
+    });
+    const saved = document.getElementById('notesSaved');
+    saved.style.display='inline'; setTimeout(()=>saved.style.display='none', 2000);
+}
+
+async function markDone() {
+    const btn = document.getElementById('doneBtn');
+    btn.textContent = 'Saving...'; btn.disabled = true;
+    await fetch(`/api/complete_lecture/${lectureId}`, {method:'POST'});
+    btn.textContent = '✅ Completed'; btn.style.background='#10B981'; btn.style.color='#000';
+    if (currentData?.next_id) {
+        setTimeout(() => window.location = `/student/lecture/${currentData.next_id}`, 1000);
+    }
+}
+
+function copyCode(btn) {
+    const code = btn.closest('.code-sec-header').nextElementSibling.querySelector('code');
+    navigator.clipboard.writeText(code.textContent);
+    btn.textContent='Copied!'; setTimeout(()=>btn.textContent='Copy',2000);
+}
+
+function escHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+load();
+</script>
+{% endblock %}

@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — LearnSphere{% endblock %}
+{% block content %}
+
+<div class="dashboard-layout">
+    <div class="dash-header">
+        <h1>📊 Learning Dashboard</h1>
+        <p>Track your ML learning journey</p>
+    </div>
+
+    <div class="dash-grid">
+        <!-- Stats Row -->
+        <div class="stat-cards">
+            <div class="stat-card">
+                <div class="stat-icon">🎯</div>
+                <div class="stat-info">
+                    <span class="stat-num" id="totalQueries">0</span>
+                    <span class="stat-label">Topics Explored</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">✅</div>
+                <div class="stat-info">
+                    <span class="stat-num" id="correctAnswers">0</span>
+                    <span class="stat-label">Correct Answers</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📈</div>
+                <div class="stat-info">
+                    <span class="stat-num" id="accuracy">0%</span>
+                    <span class="stat-label">Accuracy Rate</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🏆</div>
+                <div class="stat-info">
+                    <span class="stat-num level-badge" id="userLevel">Beginner</span>
+                    <span class="stat-label">Current Level</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Level Progress -->
+        <div class="dash-card level-card">
+            <h3>🚀 Learning Level</h3>
+            <div class="level-visual">
+                <div class="level-track">
+                    <div class="level-node" id="lv-beginner">
+                        <div class="lv-dot"></div>
+                        <span>Beginner</span>
+                    </div>
+                    <div class="level-line"><div class="level-fill" id="levelFill1"></div></div>
+                    <div class="level-node" id="lv-intermediate">
+                        <div class="lv-dot"></div>
+                        <span>Intermediate</span>
+                    </div>
+                    <div class="level-line"><div class="level-fill" id="levelFill2"></div></div>
+                    <div class="level-node" id="lv-advanced">
+                        <div class="lv-dot"></div>
+                        <span>Advanced</span>
+                    </div>
+                </div>
+            </div>
+            <div class="level-tips" id="levelTips">
+                <p>Keep exploring ML concepts to level up! 🌟</p>
+            </div>
+        </div>
+
+        <!-- Topics Learned -->
+        <div class="dash-card topics-card">
+            <h3>📚 Topics Learned</h3>
+            <div class="topics-cloud" id="topicsCloud">
+                <div class="empty-dash">No topics learned yet. Start with <a href="/learn">Learn</a>!</div>
+            </div>
+        </div>
+
+        <!-- Strengths & Weaknesses -->
+        <div class="dash-card sw-card">
+            <h3>💪 Strengths</h3>
+            <div class="strength-list" id="strengthList">
+                <div class="empty-dash">Complete quizzes to identify strengths</div>
+            </div>
+        </div>
+
+        <div class="dash-card sw-card">
+            <h3>📍 Areas to Improve</h3>
+            <div class="weak-list" id="weakList">
+                <div class="empty-dash">Keep practicing to identify areas for improvement</div>
+            </div>
+        </div>
+
+        <!-- Progress Chart -->
+        <div class="dash-card chart-card">
+            <h3>📈 Learning Progress</h3>
+            <canvas id="progressChart" height="200"></canvas>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="dash-card activity-card">
+            <h3>🕐 Recent Activity</h3>
+            <div id="activityList">
+                <div class="empty-dash">No activity yet</div>
+            </div>
+        </div>
+
+        <!-- Improvement Suggestions -->
+        <div class="dash-card suggestions-card">
+            <h3>💡 AI Recommendations</h3>
+            <div id="aiSuggestions">
+                <div class="loading-mini"><div class="spinner-sm"></div> Loading suggestions...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+async function loadDashboard() {
+    const res = await fetch('/api/profile');
+    const profile = await res.json();
+    
+    // Stats
+    document.getElementById('totalQueries').textContent = profile.total_queries || 0;
+    document.getElementById('correctAnswers').textContent = profile.correct_attempts || 0;
+    const acc = profile.total_queries ? Math.round(profile.correct_attempts / profile.total_queries * 100) : 0;
+    document.getElementById('accuracy').textContent = acc + '%';
+    document.getElementById('userLevel').textContent = capitalize(profile.level || 'Beginner');
+    document.getElementById('levelText').textContent = capitalize(profile.level || 'Beginner');
+    
+    // Level visual
+    updateLevelVisual(profile.level);
+    
+    // Topics cloud
+    if (profile.topics_learned && profile.topics_learned.length) {
+        const cloud = document.getElementById('topicsCloud');
+        cloud.innerHTML = profile.topics_learned.map((t, i) => 
+            `<span class="topic-cloud-item" style="--i:${i}" onclick="window.location='/learn?q=${encodeURIComponent(t)}'">${t}</span>`
+        ).join('');
+    }
+    
+    // Strengths
+    if (profile.strong_topics && profile.strong_topics.length) {
+        document.getElementById('strengthList').innerHTML = profile.strong_topics.map(t => 
+            `<div class="sw-item strong">✅ ${t}</div>`).join('');
+    }
+    
+    // Weaknesses
+    if (profile.weak_topics && profile.weak_topics.length) {
+        document.getElementById('weakList').innerHTML = profile.weak_topics.map(t => 
+            `<div class="sw-item weak">📍 ${t} <a href="/learn?q=${encodeURIComponent(t)}" class="review-link">Review →</a></div>`).join('');
+    }
+    
+    // Activity
+    if (profile.history && profile.history.length) {
+        const recent = profile.history.slice(-8).reverse();
+        document.getElementById('activityList').innerHTML = recent.map(h => `
+            <div class="activity-item">
+                <span class="activity-type">${h.type === 'concept' ? '📚' : '💻'}</span>
+                <span class="activity-topic">${h.topic}</span>
+                <span class="activity-time">${formatTime(h.time)}</span>
+            </div>`).join('');
+    }
+    
+    // Progress chart
+    drawProgressChart(profile);
+    
+    // AI Suggestions
+    loadAISuggestions();
+}
+
+function updateLevelVisual(level) {
+    const levels = ['beginner', 'intermediate', 'advanced'];
+    const idx = levels.indexOf(level) || 0;
+    
+    levels.forEach((l, i) => {
+        const node = document.getElementById(`lv-${l}`);
+        node.classList.toggle('active', i <= idx);
+    });
+    
+    document.getElementById('levelFill1').style.width = idx >= 1 ? '100%' : idx === 0 ? '0%' : '0%';
+    document.getElementById('levelFill2').style.width = idx >= 2 ? '100%' : '0%';
+    
+    const tips = {
+        beginner: '🌱 Great start! Explore 5+ topics and practice quizzes to reach Intermediate.',
+        intermediate: '⚡ Solid progress! Master 10+ concepts with 80%+ accuracy for Advanced.',
+        advanced: '🏆 Expert level! You have mastered machine learning fundamentals!'
+    };
+    document.getElementById('levelTips').innerHTML = `<p>${tips[level] || tips.beginner}</p>`;
+}
+
+function drawProgressChart(profile) {
+    const canvas = document.getElementById('progressChart');
+    const ctx = canvas.getContext('2d');
+    
+    const history = profile.history || [];
+    const labels = [];
+    const data = [];
+    let count = 0;
+    
+    history.forEach((h, i) => {
+        count++;
+        if (i % Math.max(1, Math.floor(history.length / 8)) === 0) {
+            labels.push(`#${count}`);
+            data.push(count);
+        }
+    });
+    if (!labels.length) {
+        labels.push('Start');
+        data.push(0);
+    }
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Topics Explored',
+                data,
+                borderColor: '#00D4FF',
+                backgroundColor: 'rgba(0,212,255,0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#00D4FF',
+                pointRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {legend: {labels: {color: '#94A3B8'}}},
+            scales: {
+                x: {ticks: {color: '#64748B'}, grid: {color: '#1E293B'}},
+                y: {ticks: {color: '#64748B'}, grid: {color: '#1E293B'}}
+            }
+        }
+    });
+}
+
+async function loadAISuggestions() {
+    const res = await fetch('/api/suggest_topics');
+    const data = await res.json();
+    if (data.success) {
+        const suggestions = data.data.suggestions.slice(0, 4);
+        document.getElementById('aiSuggestions').innerHTML = suggestions.map(s => `
+            <div class="ai-suggestion" onclick="window.location='/learn?q=${encodeURIComponent(s.topic)}'">
+                <div class="sug-header">
+                    <strong>${s.topic}</strong>
+                    <span class="sug-diff ${s.difficulty}">${s.difficulty}</span>
+                </div>
+                <p>${s.reason}</p>
+            </div>`).join('');
+    } else {
+        document.getElementById('aiSuggestions').innerHTML = '<div class="empty-dash">Start learning to get personalized suggestions!</div>';
+    }
+}
+
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function formatTime(iso) {
+    try {
+        const d = new Date(iso);
+        return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    } catch(e) { return ''; }
+}
+
+loadDashboard();
+</script>
+{% endblock %}

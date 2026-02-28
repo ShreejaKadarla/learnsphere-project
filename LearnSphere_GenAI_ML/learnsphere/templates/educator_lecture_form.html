@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Lecture Form — LearnSphere{% endblock %}
+{% block content %}
+<div class="page-wrap form-page">
+    <div class="page-header">
+        <div><h1 class="page-title" id="formTitle">Add New Lecture</h1><p class="page-sub">Create rich learning content for students</p></div>
+        <button onclick="history.back()" class="btn btn-ghost">← Back</button>
+    </div>
+
+    <div class="form-card">
+        <div class="form-grid">
+            <div class="form-group full">
+                <label>Lecture Title *</label>
+                <input type="text" id="title" placeholder="e.g. Introduction to Neural Networks" class="form-input">
+            </div>
+            <div class="form-group">
+                <label>Lecture Type</label>
+                <select id="lecType" class="form-input" onchange="toggleType()">
+                    <option value="text">📄 Text / Reading</option>
+                    <option value="video">🎥 Video</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Duration (minutes)</label>
+                <input type="number" id="duration" value="15" min="1" max="300" class="form-input">
+            </div>
+
+            <div class="form-group full" id="videoUrlGroup" style="display:none">
+                <label>Video URL (YouTube embed URL)</label>
+                <input type="text" id="videoUrl" placeholder="https://www.youtube.com/embed/VIDEO_ID" class="form-input">
+            </div>
+
+            <div class="form-group full">
+                <label>Lecture Content *</label>
+                <div class="content-help">
+                    Supports: ## Headings, **bold**, `code`, - bullet lists, numbered lists
+                </div>
+                <textarea id="content" class="form-input form-textarea tall" placeholder="Write your lecture content here...
+
+## Introduction
+Start with an overview...
+
+## Key Concepts
+- Concept 1
+- Concept 2
+
+## Summary
+Wrap up the main points..."></textarea>
+            </div>
+
+            <div class="form-group full">
+                <label>Code Example (Python)</label>
+                <div class="content-help">Optional: Add a Python code example for this lecture</div>
+                <textarea id="codeExample" class="form-input form-textarea code-font" placeholder="# Python code example
+import numpy as np
+
+# Your code here..."></textarea>
+            </div>
+        </div>
+
+        <div id="errMsg" class="error-msg-form"></div>
+        <div class="form-actions">
+            <button onclick="history.back()" class="btn btn-ghost">Cancel</button>
+            <button onclick="saveLecture()" class="btn btn-primary" id="saveBtn">Save Lecture</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const courseId = '{{ course_id }}';
+const lectureId = '{{ lecture_id }}';
+
+function toggleType() {
+    const isVideo = document.getElementById('lecType').value === 'video';
+    document.getElementById('videoUrlGroup').style.display = isVideo ? 'block' : 'none';
+}
+
+async function loadLecture() {
+    if (!lectureId || lectureId==='None') return;
+    document.getElementById('formTitle').textContent = 'Edit Lecture';
+    const data = await fetch(`/api/lectures/${lectureId}`).then(r=>r.json());
+    const l = data.lecture;
+    document.getElementById('title').value = l.title||'';
+    document.getElementById('lecType').value = l.lecture_type||'text';
+    document.getElementById('duration').value = l.duration_mins||15;
+    document.getElementById('videoUrl').value = l.video_url||'';
+    document.getElementById('content').value = l.content||'';
+    document.getElementById('codeExample').value = l.code_example||'';
+    toggleType();
+}
+
+async function saveLecture() {
+    const title = document.getElementById('title').value.trim();
+    const content = document.getElementById('content').value.trim();
+    const errEl = document.getElementById('errMsg');
+    if (!title) { errEl.textContent='Title is required'; errEl.style.display='block'; return; }
+    if (!content) { errEl.textContent='Content is required'; errEl.style.display='block'; return; }
+    errEl.style.display='none';
+    const btn = document.getElementById('saveBtn');
+    btn.textContent='Saving...'; btn.disabled=true;
+    const payload = {
+        course_id: courseId && courseId!=='None' ? courseId : undefined,
+        title, content,
+        lecture_type: document.getElementById('lecType').value,
+        video_url: document.getElementById('videoUrl').value,
+        code_example: document.getElementById('codeExample').value,
+        duration_mins: parseInt(document.getElementById('duration').value)||15
+    };
+    let res;
+    if (lectureId && lectureId!=='None') {
+        res = await fetch(`/api/lectures/${lectureId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    } else {
+        res = await fetch('/api/lectures',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    }
+    const data = await res.json();
+    if (data.success) {
+        const cid = courseId && courseId!=='None' ? courseId : null;
+        if (cid) window.location=`/educator/course/${cid}/lectures`;
+        else history.back();
+    } else {
+        errEl.textContent=data.error||'Error saving'; errEl.style.display='block';
+        btn.textContent='Save Lecture'; btn.disabled=false;
+    }
+}
+loadLecture();
+</script>
+{% endblock %}

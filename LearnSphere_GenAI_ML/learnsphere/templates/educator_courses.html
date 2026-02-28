@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}My Courses — LearnSphere{% endblock %}
+{% block content %}
+<div class="page-wrap">
+    <div class="page-header">
+        <div><h1 class="page-title">My Courses</h1><p class="page-sub">Manage all your created courses</p></div>
+        <a href="/educator/course/new" class="btn btn-primary">+ New Course</a>
+    </div>
+    <div class="course-grid large" id="courseGrid"><div class="loading-card"><div class="spinner"></div><p>Loading...</p></div></div>
+</div>
+<script>
+async function load() {
+    const courses = await fetch('/api/educator/courses').then(r=>r.json());
+    const grid = document.getElementById('courseGrid');
+    if (!courses.length) {
+        grid.innerHTML='<div class="empty-courses"><p>No courses yet.</p><a href="/educator/course/new" class="btn btn-primary">Create First Course</a></div>';
+        return;
+    }
+    grid.innerHTML = courses.map(c=>`
+        <div class="course-card educator-card">
+            <div class="course-thumb" style="background:linear-gradient(135deg,${c.thumbnail_color}25,${c.thumbnail_color}08);border-color:${c.thumbnail_color}33">
+                <div class="course-icon" style="color:${c.thumbnail_color};font-size:2.2rem">📚</div>
+                <div class="course-badges"><span class="enrolled-count">👨‍🎓 ${c.enrollment_count} students</span></div>
+            </div>
+            <div class="course-info">
+                <div class="course-meta-row"><span class="course-diff ${c.difficulty}">${c.difficulty}</span><span class="course-cat">${c.category||'ML'}</span></div>
+                <h3>${c.title}</h3>
+                <p class="course-desc">${(c.description||'').slice(0,80)}...</p>
+                <p style="font-size:0.8rem;color:#64748B">📖 ${c.lecture_count} lectures</p>
+                <div class="educator-actions">
+                    <a href="/educator/course/${c.id}/lectures" class="act-btn primary">📖 Manage Lectures</a>
+                    <a href="/educator/course/${c.id}/edit" class="act-btn">✏️ Edit</a>
+                    <button onclick="del('${c.id}',this)" class="act-btn danger">🗑</button>
+                </div>
+            </div>
+        </div>`).join('');
+}
+async function del(id,btn){if(!confirm('Delete course?'))return;btn.textContent='...';await fetch(`/api/courses/${id}`,{method:'DELETE'});load();}
+load();
+</script>
+{% endblock %}

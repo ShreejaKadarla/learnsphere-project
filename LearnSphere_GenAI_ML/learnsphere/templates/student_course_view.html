@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Course — LearnSphere{% endblock %}
+{% block content %}
+<div class="page-wrap">
+    <div id="courseContent"><div class="loading-card"><div class="spinner"></div><p>Loading course...</p></div></div>
+</div>
+<script>
+const courseId = '{{ course_id }}';
+async function load() {
+    const data = await fetch(`/api/courses/${courseId}`).then(r=>r.json());
+    const c = data.course, lecs = data.lectures, done = data.completed || [];
+    const pct = lecs.length ? Math.round(done.length/lecs.length*100) : 0;
+
+    document.getElementById('courseContent').innerHTML = `
+        <div class="course-hero" style="border-color:${c.thumbnail_color}33;background:linear-gradient(135deg,${c.thumbnail_color}10,transparent)">
+            <div>
+                <span class="course-diff ${c.difficulty}">${c.difficulty}</span>
+                <h1 style="font-family:'Syne',sans-serif;font-size:2rem;margin:0.5rem 0">${c.title}</h1>
+                <p style="color:#94A3B8">${c.description||''}</p>
+                <p style="color:#64748B;margin-top:0.5rem;font-size:0.85rem">👩‍🏫 ${c.educator_name} &nbsp;|&nbsp; 📖 ${lecs.length} lectures</p>
+            </div>
+            <div style="text-align:center;min-width:140px">
+                <div class="big-progress" style="--color:${c.thumbnail_color}">
+                    <svg width="100" height="100" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="8"/>
+                        <circle cx="50" cy="50" r="40" fill="none" stroke="${c.thumbnail_color}" stroke-width="8"
+                            stroke-dasharray="${2*Math.PI*40}" stroke-dashoffset="${2*Math.PI*40*(1-pct/100)}"
+                            stroke-linecap="round" transform="rotate(-90 50 50)"/>
+                        <text x="50" y="54" text-anchor="middle" fill="${c.thumbnail_color}" font-size="20" font-family="Syne" font-weight="800">${pct}%</text>
+                    </svg>
+                    <p style="color:#94A3B8;font-size:0.8rem;margin-top:0.3rem">Progress</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="lecture-list">
+            <h2 style="font-family:'Syne',sans-serif;margin-bottom:1rem">Course Lectures</h2>
+            ${lecs.map((l,i) => {
+                const isDone = done.includes(l.id);
+                return `<a href="/student/lecture/${l.id}" class="lecture-item ${isDone?'done':''}">
+                    <div class="lec-num ${isDone?'done':''}">${isDone?'✓':i+1}</div>
+                    <div class="lec-info">
+                        <strong>${l.title}</strong>
+                        <span>⏱ ${l.duration_mins} min${l.code_example?'  · 💻 Code included':''}</span>
+                    </div>
+                    <div class="lec-arrow">${isDone?'<span style="color:#10B981">Completed</span>':'<span>Start →</span>'}</div>
+                </a>`;
+            }).join('')}
+        </div>
+
+        ${!data.completed || data.completed.length === 0 ? `
+        <div style="text-align:center;margin-top:1rem">
+            <button onclick="enrollNow()" class="btn btn-primary" id="enrollBtn">Enroll & Start Learning</button>
+        </div>` : ''}`;
+}
+
+async function enrollNow() {
+    document.getElementById('enrollBtn').textContent = 'Enrolling...';
+    await fetch(`/api/enroll/${courseId}`, {method:'POST'});
+    window.location.reload();
+}
+load();
+</script>
+{% endblock %}

@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% block title %}AI Learning DNA — LearnSphere{% endblock %}
+{% block content %}
+<div class="page-wrap">
+
+  <div class="dna-hero">
+    <div class="dna-hero-text">
+      <div class="feature-label">🧬 Adaptive Intelligence</div>
+      <h1 class="page-title">Your Learning <span class="accent">DNA</span></h1>
+      <p class="page-sub">LearnSphere builds a live intelligence profile — tracking your learning speed, mistake patterns, concept memory decay, and preferred explanation style.</p>
+    </div>
+    <canvas id="dnaCanvas" width="180" height="220"></canvas>
+  </div>
+
+  <div class="dna-stats-bar" id="dnaStatsBar">
+    <div class="dna-stat"><span class="ds-val" id="dsTotalConcepts">—</span><span class="ds-lbl">Concepts Mapped</span></div>
+    <div class="dna-stat"><span class="ds-val" style="color:#10B981" id="dsMastered">—</span><span class="ds-lbl">Mastered</span></div>
+    <div class="dna-stat"><span class="ds-val" style="color:#F59E0B" id="dsWeak">—</span><span class="ds-lbl">Need Review</span></div>
+    <div class="dna-stat"><span class="ds-val accent" id="dsRetention">—%</span><span class="ds-lbl">Avg Retention</span></div>
+    <div class="dna-stat"><span class="ds-val" style="color:#7C3AED" id="dsStyle">—</span><span class="ds-lbl">Learning Style</span></div>
+  </div>
+
+  <div class="dna-grid">
+
+    <!-- Knowledge Decay Predictions -->
+    <div class="dna-card">
+      <div class="card-hr"><h2>⏳ Knowledge Prediction Engine</h2><span class="badge-ai">AI Powered</span></div>
+      <p class="card-sub">AI predicts when you'll forget each concept using spaced repetition science (SM-2 algorithm).</p>
+      <div id="decayList"><div class="micro-loader"></div></div>
+    </div>
+
+    <!-- Concept Memory Map -->
+    <div class="dna-card">
+      <div class="card-hr">
+        <h2>🧠 Concept Memory Map</h2>
+        <select id="sortBy" onchange="renderConceptMap(dnaData&&dnaData.dna||[])" class="mini-select">
+          <option value="recent">Most Recent</option>
+          <option value="weak">Weakest First</option>
+          <option value="strong">Strongest First</option>
+        </select>
+      </div>
+      <div id="conceptMap" style="margin-top:0.75rem"><div class="micro-loader"></div></div>
+    </div>
+
+    <!-- Speed Profile -->
+    <div class="dna-card">
+      <div class="card-hr"><h2>⚡ Learning Speed Profile</h2><span class="badge-live">Live</span></div>
+      <div id="speedProfile"><div class="micro-loader"></div></div>
+    </div>
+
+    <!-- Style DNA -->
+    <div class="dna-card">
+      <div class="card-hr"><h2>🎨 Explanation Style DNA</h2></div>
+      <p class="card-sub">Which style helps you learn fastest?</p>
+      <div style="margin-top:0.75rem">
+        <div class="style-row"><span class="sl-label">Visual / Diagrams</span><div class="sbar"><div class="sbar-fill" id="s-visual"></div></div><span class="sbar-pct" id="sp-visual">0%</span></div>
+        <div class="style-row"><span class="sl-label">Code Examples</span><div class="sbar"><div class="sbar-fill sb-purple" id="s-code"></div></div><span class="sbar-pct" id="sp-code">0%</span></div>
+        <div class="style-row"><span class="sl-label">Analogies / Simple</span><div class="sbar"><div class="sbar-fill sb-green" id="s-simple"></div></div><span class="sbar-pct" id="sp-simple">0%</span></div>
+        <div class="style-row"><span class="sl-label">Technical / Maths</span><div class="sbar"><div class="sbar-fill sb-amber" id="s-technical"></div></div><span class="sbar-pct" id="sp-technical">0%</span></div>
+      </div>
+      <div class="style-tip" id="styleTip" style="display:none"></div>
+    </div>
+
+  </div>
+
+  <!-- Mistake Pattern Analysis -->
+  <div class="dna-card" style="margin-top:1.5rem">
+    <div class="card-hr"><h2>🔍 Mistake Pattern Analysis</h2><span class="badge-ai">AI Insight</span></div>
+    <div id="mistakePatterns" style="margin-top:0.75rem"><div class="micro-loader"></div></div>
+  </div>
+
+</div>
+
+<style>
+.dna-hero{display:flex;align-items:center;justify-content:space-between;gap:2rem;margin-bottom:2rem;padding:2rem 2.5rem;background:var(--bg-card);border:1px solid var(--border);border-radius:20px;position:relative;overflow:hidden;}
+.dna-hero::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--accent-dim),transparent 65%);pointer-events:none;}
+.dna-hero-text{position:relative;z-index:1;}
+.feature-label{display:inline-block;padding:0.25rem 0.75rem;border-radius:20px;background:var(--accent-dim);border:1px solid var(--border-strong);color:var(--accent);font-size:0.72rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:0.6rem;}
+.dna-stats-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin-bottom:2rem;}
+.dna-stat{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.2rem;text-align:center;transition:border-color 0.2s;}
+.dna-stat:hover{border-color:var(--border-strong);}
+.ds-val{display:block;font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800;line-height:1.1;}
+.ds-lbl{display:block;font-size:0.7rem;color:var(--text-muted);margin-top:0.25rem;text-transform:uppercase;letter-spacing:0.04em;}
+.dna-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;}
+.dna-card{background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:1.75rem;}
+.card-hr{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;}
+.card-hr h2{font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;}
+.card-sub{font-size:0.8rem;color:var(--text-muted);line-height:1.5;}
+.badge-ai{padding:0.18rem 0.55rem;border-radius:20px;background:var(--accent-dim);border:1px solid var(--border-strong);color:var(--accent);font-size:0.68rem;font-weight:700;white-space:nowrap;}
+.badge-live{padding:0.18rem 0.55rem;border-radius:20px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);color:#10B981;font-size:0.68rem;font-weight:700;}
+.mini-select{padding:0.28rem 0.6rem;border-radius:7px;background:var(--bg-secondary);border:1px solid var(--border);color:var(--text-secondary);font-size:0.76rem;font-family:'Source Sans 3',sans-serif;outline:none;}
+.micro-loader{display:flex;align-items:center;justify-content:center;min-height:80px;color:var(--text-muted);font-size:0.82rem;}
+.micro-loader::after{content:'Loading...';margin-left:0.5rem;}
+.micro-loader::before{content:'';width:14px;height:14px;border:2px solid var(--border-strong);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0;}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Decay */
+.decay-item{display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0;border-bottom:1px solid var(--border);}
+.decay-item:last-child{border-bottom:none;}
+.decay-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.decay-info{flex:1;min-width:0;}
+.decay-concept{font-size:0.88rem;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.decay-pred{font-size:0.74rem;color:var(--text-muted);margin-top:0.1rem;}
+.decay-urgency{padding:0.15rem 0.5rem;border-radius:5px;font-size:0.66rem;font-weight:700;white-space:nowrap;}
+.urg-high{background:rgba(239,68,68,0.12);color:#EF4444;}
+.urg-med{background:rgba(245,158,11,0.12);color:#F59E0B;}
+.urg-low{background:rgba(16,185,129,0.12);color:#10B981;}
+/* Chips */
+.concept-chip{display:inline-flex;align-items:center;gap:0.35rem;padding:0.35rem 0.75rem;border-radius:20px;font-size:0.76rem;font-weight:600;margin:0.2rem;border:1px solid;cursor:default;transition:transform 0.15s;}
+.concept-chip:hover{transform:scale(1.04);}
+.ch-master{background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3);color:#10B981;}
+.ch-learn{background:var(--accent-dim);border-color:var(--border-strong);color:var(--accent);}
+.ch-weak{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.3);color:#F59E0B;}
+.ch-danger{background:rgba(239,68,68,0.08);border-color:rgba(239,68,68,0.2);color:#EF4444;}
+/* Speed */
+.speed-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;}
+.speed-box{background:var(--bg-secondary);border-radius:10px;padding:0.9rem;text-align:center;}
+.speed-box .sv{font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;color:var(--accent);}
+.speed-box .sl{font-size:0.7rem;color:var(--text-muted);margin-top:0.15rem;}
+.speed-insight{padding:0.75rem;background:var(--bg-secondary);border-radius:10px;font-size:0.8rem;color:var(--text-secondary);line-height:1.6;}
+/* Style */
+.style-row{display:flex;align-items:center;gap:0.75rem;margin-bottom:0.65rem;}
+.sl-label{width:130px;font-size:0.78rem;color:var(--text-secondary);flex-shrink:0;}
+.sbar{flex:1;height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden;}
+.sbar-fill{height:100%;background:var(--accent);border-radius:4px;width:0%;transition:width 1.2s cubic-bezier(0.4,0,0.2,1);}
+.sb-purple{background:#7C3AED;}
+.sb-green{background:#10B981;}
+.sb-amber{background:#F59E0B;}
+.sbar-pct{width:34px;font-size:0.75rem;color:var(--text-muted);text-align:right;}
+.style-tip{margin-top:0.75rem;padding:0.7rem 0.9rem;background:var(--accent-dim);border:1px solid var(--border-strong);border-radius:10px;font-size:0.8rem;color:var(--text-secondary);line-height:1.5;}
+/* Mistakes */
+.mistake-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.9rem;}
+.mistake-card{background:var(--bg-secondary);border-radius:12px;padding:0.9rem;border:1px solid var(--border);}
+.mistake-card h4{font-size:0.84rem;font-weight:700;color:var(--text-primary);margin-bottom:0.35rem;}
+.mistake-card p{font-size:0.75rem;color:var(--text-secondary);line-height:1.5;margin-bottom:0.5rem;}
+.m-tag{display:inline-block;padding:0.12rem 0.4rem;border-radius:4px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#FCA5A5;font-size:0.66rem;margin-bottom:0.35rem;}
+@media(max-width:900px){.dna-grid{grid-template-columns:1fr;}.dna-stats-bar{grid-template-columns:repeat(3,1fr);}}
+</style>
+<script>
+let dnaData = null;
+
+async function loadDNA() {
+    try {
+        const [profile, decay] = await Promise.all([
+            fetch('/api/dna/profile').then(r => r.json()),
+            fetch('/api/dna/predict_decay').then(r => r.json())
+        ]);
+        dnaData = profile;
+        renderStats(profile);
+        renderDecay(decay.predictions || []);
+        renderConceptMap(profile.dna || []);
+        renderSpeedProfile(profile);
+        renderStyleBars(profile);
+        renderMistakePatterns(profile.dna || []);
+    } catch(e) {
+        console.error('DNA load error:', e);
+    }
+}
+
+function renderStats(p) {
+    document.getElementById('dsTotalConcepts').textContent = p.total_concepts || 0;
+    document.getElementById('dsMastered').textContent = p.mastered_count || 0;
+    document.getElementById('dsWeak').textContent = p.weak_count || 0;
+    document.getElementById('dsRetention').textContent = (p.avg_retention || 0) + '%';
+    const sm = {visual:'🎨 Visual',code:'💻 Code',simple:'🤝 Analogies',technical:'🔬 Technical',balanced:'⚖️ Mixed'};
+    document.getElementById('dsStyle').textContent = sm[p.preferred_style] || '⚖️ Mixed';
+}
+
+function renderDecay(predictions) {
+    const el = document.getElementById('decayList');
+    if (!predictions.length) {
+        el.innerHTML = `<div style="padding:1rem 0;color:var(--text-muted);font-size:0.83rem;text-align:center">
+            No concepts tracked yet.<br>
+            <a href="/learn" style="color:var(--accent);font-weight:600">Start learning →</a></div>`;
+        return;
+    }
+    el.innerHTML = predictions.slice(0,8).map(p => {
+        const urg = p.days_until_forgotten<=1?'high':p.days_until_forgotten<=3?'med':'low';
+        const col = urg==='high'?'#EF4444':urg==='med'?'#F59E0B':'#10B981';
+        const lbl = urg==='high'?'⚠️ Forget today!':urg==='med'?`${p.days_until_forgotten}d left`:`Safe ${p.days_until_forgotten}d`;
+        return `<div class="decay-item">
+            <div class="decay-dot" style="background:${col}"></div>
+            <div class="decay-info">
+                <div class="decay-concept">${p.concept}</div>
+                <div class="decay-pred">${p.prediction||'Review soon'}</div>
+            </div>
+            <span class="decay-urgency urg-${urg}">${lbl}</span>
+        </div>`;
+    }).join('');
+}
+
+function renderConceptMap(dna) {
+    const el = document.getElementById('conceptMap');
+    const sort = document.getElementById('sortBy').value;
+    if (!dna.length) {
+        el.innerHTML = '<p style="color:var(--text-muted);font-size:0.83rem">Nothing tracked yet. Learn a concept first!</p>';
+        return;
+    }
+    let s = [...dna];
+    if(sort==='weak') s.sort((a,b)=>a.accuracy-b.accuracy);
+    else if(sort==='strong') s.sort((a,b)=>b.accuracy-a.accuracy);
+    el.innerHTML = s.map(d => {
+        const cls = d.accuracy>=80?'ch-master':d.accuracy>=60?'ch-learn':d.accuracy>=40?'ch-weak':'ch-danger';
+        const ic = d.accuracy>=80?'✓':d.accuracy>=60?'◎':d.accuracy>=40?'○':'✗';
+        return `<span class="concept-chip ${cls}" title="${d.accuracy}% accuracy · ${d.retention}% retention · ${d.attempts} attempts">${ic} ${d.concept} <small>${d.accuracy}%</small></span>`;
+    }).join('');
+}
+
+function renderSpeedProfile(p) {
+    const dna = p.dna||[];
+    if(!dna.length){document.getElementById('speedProfile').innerHTML='<p style="color:var(--text-muted);font-size:0.83rem">Not enough data yet.</p>';return;}
+    const speeds = dna.filter(d=>d.avg_response_ms>0).map(d=>d.avg_response_ms);
+    const avg = speeds.length ? Math.round(speeds.reduce((a,b)=>a+b,0)/speeds.length) : 0;
+    const fast = dna.filter(d=>d.avg_response_ms>0&&d.avg_response_ms<3000).length;
+    const slow = dna.filter(d=>d.avg_response_ms>=5000).length;
+    const rating = avg<3000?'🚀 Fast':avg<6000?'⚡ Steady':'📖 Deep';
+    const insight = fast>slow?'You grasp concepts quickly — great for breadth learning. Try challenging advanced topics!':'You invest time understanding deeply — a sign of excellent retention and thoroughness.';
+    document.getElementById('speedProfile').innerHTML = `
+        <div class="speed-grid">
+            <div class="speed-box"><div class="sv">${rating}</div><div class="sl">Speed Rating</div></div>
+            <div class="speed-box"><div class="sv">${dna.length}</div><div class="sl">Topics Studied</div></div>
+            <div class="speed-box"><div class="sv" style="color:#10B981">${fast}</div><div class="sl">Quick Grasp</div></div>
+            <div class="speed-box"><div class="sv" style="color:#F59E0B">${slow}</div><div class="sl">Deep Study</div></div>
+        </div>
+        <div class="speed-insight"><strong>AI Insight:</strong> ${insight}</div>`;
+}
+
+function renderStyleBars(p) {
+    const dna = p.dna||[];
+    const counts = {visual:0,code:0,simple:0,technical:0};
+    dna.forEach(d=>{if(counts[d.style_pref]!==undefined)counts[d.style_pref]++;});
+    const total = Object.values(counts).reduce((a,b)=>a+b,0)||4;
+    // If no data, show balanced defaults
+    const pcts = total===4?{visual:25,code:25,simple:25,technical:25}:{
+        visual:Math.round(counts.visual/total*100),
+        code:Math.round(counts.code/total*100),
+        simple:Math.round(counts.simple/total*100),
+        technical:Math.round(counts.technical/total*100)
+    };
+    setTimeout(()=>{
+        for(const [k,v] of Object.entries(pcts)){
+            const bar=document.getElementById(`s-${k}`);const pct=document.getElementById(`sp-${k}`);
+            if(bar)bar.style.width=v+'%';if(pct)pct.textContent=v+'%';
+        }
+    },200);
+    const dom = Object.entries(pcts).sort((a,b)=>b[1]-a[1])[0][0];
+    const tips={visual:'Use the 🎨 Diagram tab in AI Learn for best results!',code:'Use Code Lab and code examples — you learn by doing!',simple:'Try ELI5 mode in AI Learn — analogies click for you!',technical:'Use Technical mode in AI Learn for deep understanding!'};
+    const tip = document.getElementById('styleTip');
+    tip.style.display='block';
+    tip.innerHTML=`<strong>Your dominant style:</strong> ${dom.charAt(0).toUpperCase()+dom.slice(1)} — ${tips[dom]}`;
+}
+
+function renderMistakePatterns(dna) {
+    const el = document.getElementById('mistakePatterns');
+    const weak = dna.filter(d=>d.accuracy<60&&d.attempts>1);
+    if(!weak.length){el.innerHTML='<p style="color:var(--text-muted);font-size:0.83rem">No significant patterns detected yet. Keep practising!</p>';return;}
+    el.innerHTML=`<div class="mistake-grid">${weak.slice(0,6).map(d=>`
+        <div class="mistake-card">
+            <span class="m-tag">⚠️ ${d.accuracy<40?'Critical':'Needs Review'}</span>
+            <h4>${d.concept}</h4>
+            <p>${d.accuracy}% accuracy over ${d.attempts} attempt${d.attempts>1?'s':''}. Memory retention: ${d.retention}%.</p>
+            <a href="/learn?concept=${encodeURIComponent(d.concept)}" style="color:var(--accent);font-size:0.76rem;font-weight:600;text-decoration:none">→ Review now</a>
+        </div>`).join('')}</div>`;
+}
+
+// Animated DNA helix
+(function drawHelix(){
+    const canvas=document.getElementById('dnaCanvas');
+    if(!canvas)return;
+    const ctx=canvas.getContext('2d');
+    let t=0;
+    function frame(){
+        ctx.clearRect(0,0,180,220);
+        const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#00D4FF';
+        for(let i=0;i<20;i++){
+            const y=i*11+10;
+            const x1=90+Math.sin((i*0.5)+t)*55;
+            const x2=90-Math.sin((i*0.5)+t)*55;
+            const a=0.4+0.6*Math.abs(Math.sin((i*0.5)+t));
+            const hex=n=>Math.round(n*255).toString(16).padStart(2,'0');
+            ctx.beginPath();ctx.arc(x1,y,5,0,Math.PI*2);ctx.fillStyle=accent+hex(a);ctx.fill();
+            ctx.beginPath();ctx.arc(x2,y,5,0,Math.PI*2);ctx.fillStyle='#7C3AED'+hex(a);ctx.fill();
+            if(i%2===0){ctx.beginPath();ctx.moveTo(x1,y);ctx.lineTo(x2,y);ctx.strokeStyle='rgba(255,255,255,0.1)';ctx.lineWidth=1.5;ctx.stroke();}
+        }
+        t+=0.03;requestAnimationFrame(frame);
+    }
+    frame();
+})();
+
+loadDNA();
+</script>
+{% endblock %}

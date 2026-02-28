@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — LearnSphere{% endblock %}
+{% block content %}
+<div class="page-wrap">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Welcome back, <span class="accent" id="welcomeName">Learner</span></h1>
+      <p class="page-sub" id="dashSub">Continue your ML learning journey</p>
+    </div>
+    <a href="/student/courses" class="btn btn-primary">Browse Courses →</a>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-icon">📚</div><div><span class="stat-num" id="statEnrolled">—</span><span class="stat-lbl">Enrolled Courses</span></div></div>
+    <div class="stat-card"><div class="stat-icon">✅</div><div><span class="stat-num" id="statCompleted">—</span><span class="stat-lbl">Lectures Done</span></div></div>
+    <div class="stat-card"><div class="stat-icon">🧠</div><div><span class="stat-num" id="statQueries">—</span><span class="stat-lbl">AI Queries</span></div></div>
+    <div class="stat-card"><div class="stat-icon">🏆</div><div><span class="stat-num accent" id="statLevel">—</span><span class="stat-lbl">Level</span></div></div>
+  </div>
+
+  <!-- Feature Spotlight row -->
+  <div class="section-header"><h2>🔥 Power Features</h2></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:2rem">
+
+    <a href="/dna" class="feat-card dna-feat">
+      <div class="feat-icon">🧬</div>
+      <div class="feat-body">
+        <div class="feat-title">Learning DNA</div>
+        <div class="feat-desc">AI builds your live intelligence profile — tracks speed, decay, and style</div>
+      </div>
+      <div class="feat-arrow">→</div>
+    </a>
+
+    <a href="/battle" class="feat-card battle-feat">
+      <div class="feat-icon">⚔️</div>
+      <div class="feat-body">
+        <div class="feat-title">Beat the AI</div>
+        <div class="feat-desc">Compete head-to-head in ML quizzes. Can you outscore the machine?</div>
+      </div>
+      <div class="feat-arrow">→</div>
+    </a>
+
+    <a href="/learn" class="feat-card learn-feat">
+      <div class="feat-icon">🔮</div>
+      <div class="feat-body">
+        <div class="feat-title">AI Concept Lab</div>
+        <div class="feat-desc">Ask anything — get explanations, diagrams, code, quizzes instantly</div>
+      </div>
+      <div class="feat-arrow">→</div>
+    </a>
+  </div>
+
+  <!-- My Courses -->
+  <div class="section-header"><h2>My Enrolled Courses</h2><a href="/student/courses" class="link-btn">All Courses →</a></div>
+  <div class="course-grid" id="myCourses">
+    <div class="loading-card"><div class="spinner"></div><p>Loading courses...</p></div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="section-header"><h2>Quick Actions</h2></div>
+  <div class="quick-actions">
+    <a href="/learn" class="qa-card"><div class="qa-icon">🧠</div><div><strong>AI Concept Explainer</strong><p>Explain any ML concept instantly</p></div></a>
+    <a href="/code"  class="qa-card"><div class="qa-icon">💻</div><div><strong>Code Lab</strong><p>Generate & analyze ML code</p></div></a>
+    <a href="/dashboard" class="qa-card"><div class="qa-icon">📊</div><div><strong>Progress Tracker</strong><p>View your learning analytics</p></div></a>
+    <a href="/student/courses" class="qa-card"><div class="qa-icon">🎓</div><div><strong>Browse Courses</strong><p>Explore all available courses</p></div></a>
+  </div>
+
+</div>
+
+<style>
+.feat-card {
+  display:flex; align-items:center; gap:1rem;
+  padding:1.25rem 1.35rem; border-radius:var(--radius-lg);
+  background:var(--bg-card); border:1px solid var(--border);
+  text-decoration:none; color:var(--text);
+  transition:all var(--transition); position:relative; overflow:hidden;
+}
+.feat-card:hover { transform:translateY(-3px); box-shadow:var(--shadow); }
+.dna-feat:hover { border-color:rgba(63,185,80,0.4); }
+.battle-feat:hover { border-color:rgba(248,81,73,0.4); }
+.learn-feat:hover { border-color:var(--border-s); }
+.feat-icon { font-size:2rem; flex-shrink:0; }
+.feat-body { flex:1 }
+.feat-title { font-family:var(--font-serif); font-weight:700; font-size:0.95rem; margin-bottom:0.2rem; }
+.feat-desc { font-size:0.75rem; color:var(--text-2); line-height:1.4; }
+.feat-arrow { font-size:1.1rem; color:var(--text-2); transition:transform var(--transition); }
+.feat-card:hover .feat-arrow { transform:translateX(4px); color:var(--accent); }
+</style>
+
+<script>
+async function loadDash() {
+  const [stats, enrollments] = await Promise.all([
+    fetch('/api/student_stats').then(r=>r.json()),
+    fetch('/api/my_enrollments').then(r=>r.json())
+  ]);
+  const name = stats.username || 'Learner';
+  document.getElementById('welcomeName').textContent = name;
+  document.getElementById('dashSub').textContent = `Good to see you, ${name}. Your learning streak continues.`;
+  document.getElementById('statEnrolled').textContent = stats.enrolled_courses || 0;
+  document.getElementById('statCompleted').textContent = stats.completed_lectures || 0;
+  document.getElementById('statQueries').textContent = stats.total_queries || 0;
+  const lvl = stats.level || 'beginner';
+  document.getElementById('statLevel').textContent = lvl.charAt(0).toUpperCase() + lvl.slice(1);
+
+  const grid = document.getElementById('myCourses');
+  if (!enrollments.length) {
+    grid.innerHTML = '<div class="empty-courses"><p>No courses enrolled yet.</p><a href="/student/courses" class="btn btn-primary">Browse Courses</a></div>';
+    return;
+  }
+  grid.innerHTML = enrollments.slice(0,4).map(e => `
+    <a href="/student/course/${e.course_id}" class="course-card">
+      <div class="course-thumb" style="background:linear-gradient(135deg,${e.thumbnail_color}20,transparent);border-color:${e.thumbnail_color}28">
+        <div class="course-icon" style="color:${e.thumbnail_color}">📖</div>
+      </div>
+      <div class="course-info">
+        <div class="course-diff ${e.difficulty}">${e.difficulty}</div>
+        <h3>${e.title}</h3>
+        <p style="font-size:0.78rem;color:var(--text-2)">${e.educator_name}</p>
+        <div class="progress-row">
+          <div class="progress-bar"><div class="progress-fill" style="width:${e.progress||0}%;background:${e.thumbnail_color}"></div></div>
+          <span style="font-size:0.72rem;color:var(--text-2)">${e.progress||0}%</span>
+        </div>
+      </div>
+    </a>`).join('');
+}
+loadDash();
+</script>
+{% endblock %}

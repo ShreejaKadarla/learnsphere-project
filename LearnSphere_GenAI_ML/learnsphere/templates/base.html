@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}LearnSphere{% endblock %}</title>
+<link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="hljs-theme">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+{% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/" class="nav-logo">
+    <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
+      <circle cx="14" cy="14" r="13" stroke="#00D4FF" stroke-width="1.5"/>
+      <circle cx="14" cy="14" r="5" fill="#00D4FF"/>
+      <line x1="14" y1="1" x2="14" y2="7" stroke="#00D4FF" stroke-width="1.5"/>
+      <line x1="14" y1="21" x2="14" y2="27" stroke="#00D4FF" stroke-width="1.5"/>
+      <line x1="1" y1="14" x2="7" y2="14" stroke="#00D4FF" stroke-width="1.5"/>
+      <line x1="21" y1="14" x2="27" y2="14" stroke="#00D4FF" stroke-width="1.5"/>
+    </svg>
+    <span class="logo-text">Learn<span class="logo-accent">Sphere</span></span>
+  </a>
+
+  {% set role = session.get('role','') %}
+  <div class="nav-links">
+    {% if role == 'educator' %}
+      <a href="/educator/dashboard" class="nav-link {% if '/educator/dashboard' in request.path %}active{% endif %}">Dashboard</a>
+      <a href="/educator/courses"   class="nav-link {% if '/educator/course' in request.path or '/educator/lecture' in request.path %}active{% endif %}">My Courses</a>
+    {% else %}
+      <a href="/student/dashboard" class="nav-link {% if '/student/dashboard' in request.path %}active{% endif %}">Dashboard</a>
+      <a href="/student/courses"   class="nav-link {% if '/student/course' in request.path %}active{% endif %}">Courses</a>
+      <a href="/learn"             class="nav-link {% if request.path == '/learn' %}active{% endif %}">AI Learn</a>
+      <a href="/code"              class="nav-link {% if request.path == '/code' %}active{% endif %}">Code Lab</a>
+      <a href="/dna"               class="nav-link {% if request.path == '/dna' %}active{% endif %}">🧬 My DNA</a>
+      <a href="/battle"            class="nav-link {% if request.path == '/battle' %}active{% endif %}">⚔️ Battle AI</a>
+      <a href="/dashboard"         class="nav-link {% if request.path == '/dashboard' %}active{% endif %}">Progress</a>
+    {% endif %}
+  </div>
+
+  <div class="nav-right">
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle Day / Night">🌙</button>
+    <div class="accent-dots">
+      <button class="adot" style="background:#00D4FF" onclick="setAccent('#00D4FF','cyan')"   data-k="cyan"   title="Cyan"></button>
+      <button class="adot" style="background:#7C3AED" onclick="setAccent('#7C3AED','purple')" data-k="purple" title="Purple"></button>
+      <button class="adot" style="background:#10B981" onclick="setAccent('#10B981','green')"  data-k="green"  title="Green"></button>
+      <button class="adot" style="background:#F59E0B" onclick="setAccent('#F59E0B','amber')"  data-k="amber"  title="Amber"></button>
+    </div>
+    <div class="nav-user">
+      <span class="nav-avatar">{{ session.get('username','?')[0]|upper }}</span>
+      <span class="nav-username">{{ session.get('username','') }}</span>
+    </div>
+    <a href="/logout" class="logout-btn">Logout</a>
+  </div>
+</nav>
+
+<main>{% block content %}{% endblock %}</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script>
+(function() {
+  var t = localStorage.getItem('ls_theme')  || 'night';
+  var a = localStorage.getItem('ls_accent') || 'cyan';
+  document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.setAttribute('data-accent', a);
+
+  var accentMap = {cyan:'#00D4FF', purple:'#7C3AED', green:'#10B981', amber:'#F59E0B'};
+  if (accentMap[a]) {
+    document.documentElement.style.setProperty('--accent', accentMap[a]);
+    document.documentElement.style.setProperty('--accent-glow', accentMap[a] + '22');
+    document.documentElement.style.setProperty('--accent-strong', accentMap[a] + '44');
+  }
+
+  var icon = document.getElementById('themeToggle');
+  if (icon) icon.textContent = t === 'day' ? '\u2600\uFE0F' : '\uD83C\uDF19';
+
+  document.querySelectorAll('.adot').forEach(function(d) {
+    d.style.outline = d.dataset.k === a ? '2px solid white' : 'none';
+    d.style.outlineOffset = '1px';
+  });
+})();
+
+function toggleTheme() {
+  var curr = document.documentElement.getAttribute('data-theme') || 'night';
+  var next = curr === 'night' ? 'day' : 'night';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('ls_theme', next);
+  var icon = document.getElementById('themeToggle');
+  if (icon) icon.textContent = next === 'day' ? '\u2600\uFE0F' : '\uD83C\uDF19';
+  var hljs = document.getElementById('hljs-theme');
+  if (hljs) hljs.href = next === 'day'
+    ? 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css'
+    : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css';
+}
+
+function setAccent(hex, key) {
+  document.documentElement.style.setProperty('--accent', hex);
+  document.documentElement.style.setProperty('--accent-glow', hex + '22');
+  document.documentElement.style.setProperty('--accent-strong', hex + '44');
+  document.documentElement.setAttribute('data-accent', key);
+  localStorage.setItem('ls_accent', key);
+  document.querySelectorAll('.adot').forEach(function(d) {
+    d.style.outline = d.dataset.k === key ? '2px solid white' : 'none';
+    d.style.outlineOffset = '1px';
+  });
+}
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

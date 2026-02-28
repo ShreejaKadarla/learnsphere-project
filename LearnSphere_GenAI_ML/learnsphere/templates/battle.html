@@ -1,0 +1,458 @@
+{% extends "base.html" %}
+{% block title %}Beat the AI — LearnSphere{% endblock %}
+{% block extra_css %}
+<style>
+.battle-wrap { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+/* LOBBY */
+.battle-lobby {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-xl); padding: 3rem 2.5rem; text-align: center;
+  position: relative; overflow: hidden;
+}
+.lobby-title {
+  font-family: var(--font-serif); font-size: 2.4rem; font-weight: 700;
+  color: var(--text); margin-bottom: 0.5rem;
+}
+.lobby-title span { color: var(--accent); }
+.lobby-sub { color: var(--text-2); font-size: 0.9rem; margin-bottom: 2rem; max-width: 480px; margin-left: auto; margin-right: auto; }
+.lobby-config {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem;
+  max-width: 440px; margin: 0 auto 2rem;
+}
+.lobby-field label {
+  display: block; font-size: 0.7rem; font-weight: 700; color: var(--text-2);
+  text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem;
+}
+.lobby-field select {
+  width: 100%; padding: 0.6rem 0.85rem; border-radius: 8px;
+  background: var(--bg-hover); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--font-sans); font-size: 0.86rem; outline: none;
+}
+.start-btn {
+  display: inline-flex; align-items: center; gap: 0.6rem;
+  padding: 0.85rem 2.5rem; border-radius: 50px;
+  background: var(--accent); border: none; color: #fff;
+  font-family: var(--font-serif); font-size: 1.1rem; font-weight: 700;
+  cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 20px var(--accent-glow);
+}
+.start-btn:hover { transform: translateY(-2px); filter: brightness(1.08); }
+
+/* SCOREBOARD */
+.scoreboard {
+  display: grid; grid-template-columns: 1fr 48px 1fr; gap: 1rem;
+  align-items: center; margin-bottom: 1.75rem;
+}
+.score-side {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 1.25rem; text-align: center;
+  transition: all 0.2s;
+}
+.score-side.winning { border-color: var(--border-s); background: var(--accent-glow); }
+.score-avatar { font-size: 2.4rem; margin-bottom: 0.35rem; }
+.score-name   { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-2); margin-bottom: 0.3rem; }
+.score-number { font-family: var(--font-serif); font-size: 2.8rem; font-weight: 700; color: var(--accent); line-height: 1; }
+.score-sub    { font-size: 0.7rem; color: var(--text-2); margin-top: 0.2rem; }
+.vs-badge {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--bg-hover); border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.72rem; font-weight: 900; color: var(--text-2); letter-spacing: 0.05em;
+}
+
+/* QUESTION CARD */
+.question-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-xl); padding: 2rem 2.25rem; margin-bottom: 1.25rem;
+}
+.q-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
+.q-number { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-2); }
+.q-pts    { font-size: 0.72rem; font-weight: 700; color: var(--accent); }
+.q-diff   { padding: 0.18rem 0.6rem; border-radius: 20px; font-size: 0.7rem; font-weight: 700; }
+.q-diff.easy   { background: rgba(63,185,80,0.12); color: var(--success); }
+.q-diff.medium { background: rgba(227,179,65,0.12); color: var(--warn); }
+.q-diff.hard   { background: rgba(248,81,73,0.1);  color: var(--danger); }
+
+.q-timer-bar  { height: 3px; background: var(--bg-hover); border-radius: 2px; margin-bottom: 1.5rem; overflow: hidden; }
+.q-timer-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.1s linear; }
+
+.q-text { font-family: var(--font-serif); font-size: 1.2rem; font-weight: 600; color: var(--text); line-height: 1.5; margin-bottom: 1.5rem; }
+
+.q-options { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; }
+.q-option {
+  padding: 0.8rem 1rem; border-radius: 10px;
+  background: var(--bg-hover); border: 1.5px solid var(--border);
+  color: var(--text); font-size: 0.86rem; font-weight: 500;
+  cursor: pointer; transition: all 0.15s; text-align: left;
+  font-family: var(--font-sans);
+}
+.q-option:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+.q-option.correct { border-color: var(--success); background: rgba(63,185,80,0.1); color: var(--success); }
+.q-option.wrong   { border-color: var(--danger);  background: rgba(248,81,73,0.08); color: var(--danger); }
+.q-option:disabled { cursor: not-allowed; }
+
+.q-feedback {
+  margin-top: 1.1rem; padding: 0.85rem 1.1rem;
+  border-radius: 9px; font-size: 0.83rem; line-height: 1.6; display: none;
+}
+.q-feedback.correct { background: rgba(63,185,80,0.07); border: 1px solid rgba(63,185,80,0.22); color: var(--success); }
+.q-feedback.wrong   { background: rgba(248,81,73,0.05); border: 1px solid rgba(248,81,73,0.18); color: var(--text-2); }
+
+.next-btn {
+  display: block; width: 100%; padding: 0.8rem; margin-top: 1rem;
+  border-radius: 10px; background: var(--accent); border: none;
+  color: #fff; font-family: var(--font-serif); font-size: 0.95rem; font-weight: 700;
+  cursor: pointer; transition: all 0.15s;
+}
+.next-btn:hover   { filter: brightness(1.08); transform: translateY(-1px); }
+.next-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+/* STATUS */
+.status-bar { display: flex; align-items: center; justify-content: center; gap: 0.75rem; margin-bottom: 1.25rem; }
+.status-pill {
+  padding: 0.3rem 0.9rem; border-radius: 20px;
+  background: var(--bg-hover); border: 1px solid var(--border);
+  color: var(--text-2); font-size: 0.75rem; font-weight: 600;
+}
+.status-pill.active { background: var(--accent-glow); border-color: var(--border-s); color: var(--accent); }
+
+/* RESULT */
+.result-screen {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-xl); padding: 3rem 2.5rem; text-align: center;
+  animation: fadeUp 0.35s ease;
+}
+.result-emoji { font-size: 5rem; margin-bottom: 1rem; }
+.result-title { font-family: var(--font-serif); font-size: 2rem; font-weight: 700; color: var(--text); margin-bottom: 0.5rem; }
+.result-sub   { color: var(--text-2); font-size: 0.9rem; margin-bottom: 2rem; }
+.result-scores { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; max-width: 360px; margin: 0 auto 2rem; }
+.rs-card { background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem; }
+.rs-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-2); font-weight: 700; margin-bottom: 0.35rem; }
+.rs-score { font-family: var(--font-serif); font-size: 2.4rem; font-weight: 700; }
+.result-actions { display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; }
+.q-history { display: flex; gap: 0.4rem; margin-bottom: 1.5rem; justify-content: center; flex-wrap: wrap; }
+.q-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; }
+.q-dot.ok { background: rgba(63,185,80,0.18); color: var(--success); border: 2px solid var(--success); }
+.q-dot.no { background: rgba(248,81,73,0.1);  color: var(--danger);  border: 2px solid var(--danger); }
+
+/* LEADERBOARD */
+.leaderboard-list { margin-top: 1.5rem; }
+.lb-header { display: flex; gap: 0.75rem; padding: 0.3rem 0.75rem; font-size: 0.68rem; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+.lb-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.75rem; background: var(--bg-hover); border-radius: 8px; margin-bottom: 0.4rem; font-size: 0.83rem; }
+.lb-rank  { width: 24px; text-align: center; font-weight: 700; flex-shrink: 0; color: var(--text-2); }
+.lb-name  { flex: 1; font-weight: 600; color: var(--text); }
+.lb-score { min-width: 60px; text-align: right; font-weight: 700; color: var(--accent); }
+.lb-games { min-width: 50px; text-align: right; color: var(--text-2); }
+.lb-wins  { min-width: 45px; text-align: right; color: var(--success); font-weight: 600; }
+.gold   { color: #FFD700 !important; }
+.silver { color: #B0BEC5 !important; }
+.bronze { color: #CD7F32 !important; }
+
+@media (max-width: 600px) {
+  .q-options    { grid-template-columns: 1fr; }
+  .scoreboard   { grid-template-columns: 1fr auto 1fr; }
+  .lobby-config { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="battle-wrap">
+
+  <!-- ══ LOBBY ══════════════════════════════════════════════════ -->
+  <div id="lobbyScreen">
+    <div class="battle-lobby animate-in">
+      <div class="lobby-title">Beat the <span>AI</span> ⚔️</div>
+      <p class="lobby-sub">Answer ML questions faster and more accurately than our AI tutor. Can you outsmart the machine?</p>
+
+      <div class="lobby-config">
+        <div class="lobby-field">
+          <label>Topic</label>
+          <select id="cfgTopic">
+            <option>Machine Learning</option>
+            <option>Neural Networks</option>
+            <option>Deep Learning</option>
+            <option>NLP</option>
+            <option>Statistics</option>
+            <option>Python ML</option>
+          </select>
+        </div>
+        <div class="lobby-field">
+          <label>Difficulty</label>
+          <select id="cfgDiff">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <div class="lobby-field" style="grid-column:1/-1">
+          <label>Questions</label>
+          <select id="cfgQCount">
+            <option value="5">5 Questions (Quick)</option>
+            <option value="10" selected>10 Questions (Standard)</option>
+            <option value="15">15 Questions (Extended)</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="start-btn" onclick="startBattle()">⚔️ Start Battle</button>
+
+      <div style="margin-top:2.5rem">
+        <div class="section-header" style="margin:0 0 0.75rem"><h2>🏆 Leaderboard</h2></div>
+        <div id="lbList" class="leaderboard-list">
+          <div class="loading-card" style="min-height:100px"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ARENA ══════════════════════════════════════════════════ -->
+  <div id="arenaScreen" style="display:none">
+    <div class="scoreboard">
+      <div class="score-side" id="youSide">
+        <div class="score-avatar">🧑‍🎓</div>
+        <div class="score-name">You</div>
+        <div class="score-number" id="yourScore">0</div>
+        <div class="score-sub" id="yourCorr">0 correct</div>
+      </div>
+      <div class="vs-badge">VS</div>
+      <div class="score-side" id="aiSide">
+        <div class="score-avatar">🤖</div>
+        <div class="score-name">AI</div>
+        <div class="score-number" id="aiScore">0</div>
+        <div class="score-sub" id="aiCorr">0 correct</div>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <span class="status-pill active" id="qProg">Q 1 / 10</span>
+      <span class="status-pill" id="diffPill">Medium</span>
+      <span class="status-pill" id="topicPill">ML</span>
+    </div>
+
+    <div class="question-card">
+      <div class="q-meta">
+        <span class="q-number" id="qNumber">Question 1</span>
+        <span class="q-pts" id="qPoints">+20 pts</span>
+        <span class="q-diff medium" id="qDiff">Medium</span>
+      </div>
+      <div class="q-timer-bar"><div class="q-timer-fill" id="timerFill"></div></div>
+      <div class="q-text" id="qText">Loading question...</div>
+      <div class="q-options" id="qOptions"></div>
+      <div class="q-feedback" id="qFeedback"></div>
+      <button class="next-btn" id="nextBtn" onclick="nextQuestion()" disabled>Next Question →</button>
+    </div>
+  </div>
+
+  <!-- ══ RESULT ══════════════════════════════════════════════════ -->
+  <div id="resultScreen" style="display:none">
+    <div class="result-screen">
+      <div class="result-emoji" id="resultEmoji">🏆</div>
+      <div class="result-title" id="resultTitle">You Win!</div>
+      <div class="result-sub"   id="resultSub">Great job!</div>
+      <div class="q-history"    id="qHistory"></div>
+      <div class="result-scores">
+        <div class="rs-card"><div class="rs-label">Your Score</div><div class="rs-score" id="finalYou" style="color:var(--accent)">0</div></div>
+        <div class="rs-card"><div class="rs-label">AI Score</div><div class="rs-score" id="finalAI" style="color:var(--accent-2)">0</div></div>
+      </div>
+      <div class="result-actions">
+        <button class="btn btn-primary" onclick="startBattle()">⚔️ Rematch</button>
+        <button class="btn btn-ghost"   onclick="goLobby()">← Lobby</button>
+        <a href="/dna" class="btn btn-ghost">🧬 View DNA</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+var G = {
+  topic:'Machine Learning', diff:'medium', totalQ:10,
+  yourScore:0, aiScore:0, yourCorr:0, aiCorr:0,
+  qNum:0, answered:false, history:[], currentQ:null,
+  timerInterval:null, timeLeft:20
+};
+
+function show(id){ document.getElementById(id).style.display='block'; }
+function hide(id){ document.getElementById(id).style.display='none'; }
+
+async function loadLeaderboard(){
+  try {
+    var rows = await fetch('/api/battle/leaderboard').then(function(r){ return r.json(); });
+    var el = document.getElementById('lbList');
+    if(!rows.length){ el.innerHTML='<p style="text-align:center;color:var(--text-2);padding:1.5rem">No games played yet. Be the first!</p>'; return; }
+    var rankIcon = function(i){ return i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1); };
+    el.innerHTML = '<div class="lb-header"><span style="width:24px"></span><span style="flex:1">Player</span><span style="min-width:60px;text-align:right">Best</span><span style="min-width:50px;text-align:right">Games</span><span style="min-width:45px;text-align:right">Wins</span></div>' +
+      rows.map(function(r,i){
+        var cls = i===0?'gold':i===1?'silver':i===2?'bronze':'';
+        return '<div class="lb-row"><span class="lb-rank '+cls+'">'+rankIcon(i)+'</span><span class="lb-name">'+r.username+'</span><span class="lb-score">'+r.best_score+'</span><span class="lb-games">'+r.games_played+'</span><span class="lb-wins">'+r.wins+'</span></div>';
+      }).join('');
+  } catch(e){ document.getElementById('lbList').innerHTML='<p style="color:var(--text-2);padding:1rem;text-align:center">Leaderboard unavailable</p>'; }
+}
+
+function goLobby(){ show('lobbyScreen'); hide('arenaScreen'); hide('resultScreen'); loadLeaderboard(); }
+
+function startBattle(){
+  G.topic      = document.getElementById('cfgTopic').value;
+  G.diff       = document.getElementById('cfgDiff').value;
+  G.totalQ     = parseInt(document.getElementById('cfgQCount').value);
+  G.yourScore  = 0; G.aiScore = 0;
+  G.yourCorr   = 0; G.aiCorr  = 0;
+  G.qNum       = 0; G.answered= false; G.history = [];
+  updateScoreboard();
+  document.getElementById('diffPill').textContent  = G.diff.charAt(0).toUpperCase()+G.diff.slice(1);
+  document.getElementById('topicPill').textContent = G.topic.split(' ')[0];
+  show('arenaScreen'); hide('lobbyScreen'); hide('resultScreen');
+  loadNextQuestion();
+}
+
+async function loadNextQuestion(){
+  G.qNum++; G.answered = false;
+  document.getElementById('nextBtn').disabled = true;
+  document.getElementById('qFeedback').style.display = 'none';
+
+  var diff = G.diff;
+  if(G.qNum > 7 && diff !== 'hard') diff = 'hard';
+  else if(G.qNum > 4 && diff === 'easy') diff = 'medium';
+
+  document.getElementById('qNumber').textContent = 'Question '+G.qNum;
+  document.getElementById('qProg').textContent   = 'Q '+G.qNum+' / '+G.totalQ;
+  document.getElementById('qDiff').textContent   = diff.charAt(0).toUpperCase()+diff.slice(1);
+  document.getElementById('qDiff').className     = 'q-diff '+diff;
+  document.getElementById('qText').textContent   = 'Loading question...';
+  document.getElementById('qOptions').innerHTML  = '<div style="text-align:center;padding:1.5rem;color:var(--text-2)"><div class="spinner" style="margin:0 auto"></div></div>';
+
+  try {
+    var res  = await fetch('/api/battle/question', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({topic:G.topic, difficulty:diff, question_num:G.qNum})
+    });
+    var data = await res.json();
+    if(!data.success) throw new Error(data.error);
+    G.currentQ = data.data;
+    document.getElementById('qPoints').textContent = '+'+(data.data.points||20)+' pts';
+    renderQuestion(data.data);
+    startTimer(20);
+  } catch(e){
+    document.getElementById('qText').textContent = 'Could not load question. Click Next.';
+    document.getElementById('qOptions').innerHTML = '';
+    document.getElementById('nextBtn').disabled = false;
+  }
+}
+
+function renderQuestion(q){
+  document.getElementById('qText').textContent = q.question;
+  document.getElementById('qOptions').innerHTML = q.options.map(function(opt){
+    var letter = opt.charAt(0);
+    return '<button class="q-option" onclick="selectAnswer(this,\''+letter+'\')" data-letter="'+letter+'">'+opt+'</button>';
+  }).join('');
+}
+
+function startTimer(seconds){
+  clearInterval(G.timerInterval);
+  G.timeLeft = seconds;
+  var fill = document.getElementById('timerFill');
+  fill.style.width = '100%';
+  fill.style.background = 'linear-gradient(90deg, var(--accent), var(--accent-2))';
+
+  G.timerInterval = setInterval(function(){
+    G.timeLeft -= 0.1;
+    fill.style.width = Math.max(0, G.timeLeft/seconds*100)+'%';
+    if(G.timeLeft <= 5) fill.style.background = 'var(--danger)';
+    if(G.timeLeft <= 0){ clearInterval(G.timerInterval); if(!G.answered) autoTimeout(); }
+  }, 100);
+}
+
+function autoTimeout(){
+  G.answered = true;
+  var fb = document.getElementById('qFeedback');
+  fb.className = 'q-feedback wrong';
+  fb.innerHTML = "⏱️ Time's up! Correct answer: <strong>"+G.currentQ.answer+"</strong>. "+G.currentQ.explanation;
+  fb.style.display = 'block';
+  document.querySelectorAll('.q-option').forEach(function(b){
+    b.disabled = true;
+    if(b.dataset.letter === G.currentQ.answer) b.classList.add('correct');
+  });
+  processResult(false, true);
+}
+
+function selectAnswer(btn, letter){
+  if(G.answered) return;
+  G.answered = true;
+  clearInterval(G.timerInterval);
+
+  var correct   = G.currentQ.answer;
+  var youRight  = letter === correct;
+  var aiAcc     = G.diff==='easy' ? 0.88 : G.diff==='medium' ? 0.70 : 0.52;
+  var aiRight   = Math.random() < aiAcc;
+
+  document.querySelectorAll('.q-option').forEach(function(b){
+    b.disabled = true;
+    if(b.dataset.letter === correct) b.classList.add('correct');
+    else if(b === btn && !youRight) b.classList.add('wrong');
+  });
+
+  var fb = document.getElementById('qFeedback');
+  var aiMsg = aiRight ? '🤖 AI got it right.' : '🤖 AI got it wrong!';
+  if(youRight){
+    fb.className = 'q-feedback correct';
+    fb.innerHTML = '✅ Correct! '+G.currentQ.explanation+' — '+aiMsg;
+  } else {
+    fb.className = 'q-feedback wrong';
+    fb.innerHTML = '❌ Answer was <strong>'+correct+'</strong>. '+G.currentQ.explanation+' — '+aiMsg;
+  }
+  fb.style.display = 'block';
+  processResult(youRight, aiRight);
+}
+
+function processResult(youRight, aiRight){
+  var pts = G.currentQ ? (G.currentQ.points || 20) : 20;
+  if(youRight){ G.yourScore += pts; G.yourCorr++; }
+  if(aiRight) { G.aiScore  += pts; G.aiCorr++;  }
+  G.history.push({y:youRight, a:aiRight});
+  updateScoreboard();
+  if(G.currentQ){
+    fetch('/api/dna/update', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({concept:G.topic, correct:youRight, response_ms:Math.round(Math.max(500,(20-G.timeLeft)*1000))})
+    }).catch(function(){});
+  }
+  document.getElementById('nextBtn').disabled = false;
+  document.getElementById('nextBtn').textContent = G.qNum >= G.totalQ ? '🏁 See Results' : 'Next Question →';
+}
+
+function nextQuestion(){ if(G.qNum >= G.totalQ){ showResults(); } else { loadNextQuestion(); } }
+
+function updateScoreboard(){
+  document.getElementById('yourScore').textContent = G.yourScore;
+  document.getElementById('aiScore').textContent   = G.aiScore;
+  document.getElementById('yourCorr').textContent  = G.yourCorr+' correct';
+  document.getElementById('aiCorr').textContent    = G.aiCorr+' correct';
+  document.getElementById('youSide').classList.toggle('winning', G.yourScore >= G.aiScore);
+  document.getElementById('aiSide').classList.toggle('winning',  G.aiScore >  G.yourScore);
+}
+
+function showResults(){
+  clearInterval(G.timerInterval);
+  hide('arenaScreen');
+  var youWon = G.yourScore > G.aiScore;
+  var tie    = G.yourScore === G.aiScore;
+  document.getElementById('resultEmoji').textContent = tie?'🤝':youWon?'🏆':'🤖';
+  document.getElementById('resultTitle').textContent = tie?"It's a Tie!":youWon?'You Win!':'AI Wins!';
+  document.getElementById('resultSub').textContent   = tie?'Perfectly matched — rematch?':youWon?'You beat the AI '+G.yourScore+' to '+G.aiScore+'!':'AI edges it '+G.aiScore+' to '+G.yourScore+'. Rematch?';
+  document.getElementById('finalYou').textContent = G.yourScore;
+  document.getElementById('finalAI').textContent  = G.aiScore;
+  document.getElementById('finalYou').style.color = youWon?'var(--success)':'var(--accent)';
+  document.getElementById('finalAI').style.color  = (!youWon&&!tie)?'var(--danger)':'var(--accent-2)';
+  document.getElementById('qHistory').innerHTML = G.history.map(function(h,i){
+    return '<div class="q-dot '+(h.y?'ok':'no')+'" title="Q'+(i+1)+': '+(h.y?'Correct':'Wrong')+'">'+(h.y?'✓':'✗')+'</div>';
+  }).join('');
+  fetch('/api/battle/save_score',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({score:G.yourScore, ai_score:G.aiScore, topic:G.topic})
+  }).catch(function(){});
+  show('resultScreen');
+}
+
+goLobby();
+</script>
+{% endblock %}

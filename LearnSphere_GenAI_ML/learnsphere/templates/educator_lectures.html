@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Lectures — LearnSphere{% endblock %}
+{% block content %}
+<div class="page-wrap">
+    <div class="page-header">
+        <div>
+            <a href="/educator/courses" class="back-link">← My Courses</a>
+            <h1 class="page-title" id="courseTitle">Course Lectures</h1>
+            <p class="page-sub" id="courseSub"></p>
+        </div>
+        <div style="display:flex;gap:0.75rem">
+            <a href="/educator/course/{{ course_id }}/edit" class="btn btn-ghost">✏️ Edit Course</a>
+            <a href="/educator/lecture/new/{{ course_id }}" class="btn btn-primary">+ Add Lecture</a>
+        </div>
+    </div>
+
+    <div id="lectureList"><div class="loading-card"><div class="spinner"></div><p>Loading lectures...</p></div></div>
+</div>
+
+<script>
+const courseId = '{{ course_id }}';
+
+async function load() {
+    const data = await fetch(`/api/courses/${courseId}`).then(r=>r.json());
+    document.getElementById('courseTitle').textContent = data.course.title;
+    document.getElementById('courseSub').textContent = `${data.lectures.length} lectures · ${data.course.difficulty}`;
+
+    const list = document.getElementById('lectureList');
+    if (!data.lectures.length) {
+        list.innerHTML='<div class="empty-courses"><p>No lectures yet.</p><a href="/educator/lecture/new/'+courseId+'" class="btn btn-primary">+ Add First Lecture</a></div>';
+        return;
+    }
+    list.innerHTML = `
+        <div class="lecture-manage-list">
+            ${data.lectures.map((l,i) => `
+            <div class="lec-manage-item">
+                <div class="lec-order">${i+1}</div>
+                <div class="lec-manage-info">
+                    <strong>${l.title}</strong>
+                    <span>⏱ ${l.duration_mins} min · ${l.lecture_type} ${l.code_example?'· 💻 has code':''}</span>
+                </div>
+                <div class="lec-manage-actions">
+                    <a href="/educator/lecture/${l.id}/edit" class="act-btn">✏️ Edit</a>
+                    <button onclick="delLec('${l.id}',this)" class="act-btn danger">🗑</button>
+                </div>
+            </div>`).join('')}
+        </div>
+        <div style="margin-top:1rem;text-align:center">
+            <a href="/educator/lecture/new/${courseId}" class="btn btn-ghost">+ Add Another Lecture</a>
+        </div>`;
+}
+
+async function delLec(id, btn) {
+    if (!confirm('Delete this lecture?')) return;
+    btn.textContent='...';
+    await fetch(`/api/lectures/${id}`,{method:'DELETE'});
+    load();
+}
+load();
+</script>
+{% endblock %}

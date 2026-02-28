@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Educator Dashboard — LearnSphere{% endblock %}
+{% block content %}
+<div class="page-wrap">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Educator Dashboard 👩‍🏫</h1>
+            <p class="page-sub" id="eduWelcome">Manage your courses and lectures</p>
+        </div>
+        <a href="/educator/course/new" class="btn btn-primary">+ Create Course</a>
+    </div>
+
+    <div class="stats-row" id="statsRow">
+        <div class="stat-card"><div class="stat-icon">📚</div><div><span class="stat-num" id="statCourses">—</span><span class="stat-lbl">Courses Created</span></div></div>
+        <div class="stat-card"><div class="stat-icon">📖</div><div><span class="stat-num" id="statLectures">—</span><span class="stat-lbl">Total Lectures</span></div></div>
+        <div class="stat-card"><div class="stat-icon">👨‍🎓</div><div><span class="stat-num" id="statStudents">—</span><span class="stat-lbl">Enrolled Students</span></div></div>
+        <div class="stat-card"><div class="stat-icon">⭐</div><div><span class="stat-num accent">Active</span><span class="stat-lbl">Status</span></div></div>
+    </div>
+
+    <div class="section-header"><h2>My Courses</h2><a href="/educator/courses" class="link-btn">Manage All →</a></div>
+    <div class="course-grid large" id="courseGrid"><div class="loading-card"><div class="spinner"></div><p>Loading...</p></div></div>
+</div>
+
+<script>
+async function load() {
+    const [stats, courses] = await Promise.all([
+        fetch('/api/educator_stats').then(r=>r.json()),
+        fetch('/api/educator/courses').then(r=>r.json())
+    ]);
+    document.getElementById('eduWelcome').textContent = `Welcome back, ${stats.username}`;
+    document.getElementById('statCourses').textContent = stats.courses;
+    document.getElementById('statLectures').textContent = stats.lectures;
+    document.getElementById('statStudents').textContent = stats.students;
+
+    const grid = document.getElementById('courseGrid');
+    if (!courses.length) {
+        grid.innerHTML = '<div class="empty-courses"><p>No courses yet. Create your first course!</p><a href="/educator/course/new" class="btn btn-primary">+ Create Course</a></div>';
+        return;
+    }
+    grid.innerHTML = courses.map(c => `
+        <div class="course-card educator-card">
+            <div class="course-thumb" style="background:linear-gradient(135deg,${c.thumbnail_color}22,${c.thumbnail_color}08);border-color:${c.thumbnail_color}33">
+                <div class="course-icon" style="color:${c.thumbnail_color};font-size:2rem">📚</div>
+                <div class="course-badges"><span class="enrolled-count">👨‍🎓 ${c.enrollment_count}</span></div>
+            </div>
+            <div class="course-info">
+                <span class="course-diff ${c.difficulty}">${c.difficulty}</span>
+                <h3>${c.title}</h3>
+                <p>${c.lecture_count} lectures</p>
+                <div class="educator-actions">
+                    <a href="/educator/course/${c.id}/lectures" class="act-btn">📖 Lectures</a>
+                    <a href="/educator/course/${c.id}/edit" class="act-btn">✏️ Edit</a>
+                    <button onclick="deleteCourse('${c.id}',this)" class="act-btn danger">🗑 Delete</button>
+                </div>
+            </div>
+        </div>`).join('');
+}
+
+async function deleteCourse(id, btn) {
+    if (!confirm('Delete this course and all its lectures?')) return;
+    btn.textContent = 'Deleting...';
+    await fetch(`/api/courses/${id}`, {method:'DELETE'});
+    load();
+}
+load();
+</script>
+{% endblock %}

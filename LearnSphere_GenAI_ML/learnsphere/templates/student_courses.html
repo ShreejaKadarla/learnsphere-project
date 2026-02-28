@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Courses — LearnSphere{% endblock %}
+{% block content %}
+<div class="page-wrap">
+    <div class="page-header">
+        <div><h1 class="page-title">Browse Courses</h1><p class="page-sub">All available ML courses from our educators</p></div>
+        <div class="filter-row">
+            <select id="filterDiff" onchange="filterCourses()" class="filter-select">
+                <option value="">All Levels</option>
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+            </select>
+        </div>
+    </div>
+    <div class="course-grid large" id="courseGrid"><div class="loading-card"><div class="spinner"></div><p>Loading courses...</p></div></div>
+</div>
+
+<script>
+let allCourses = [];
+
+async function load() {
+    allCourses = await fetch('/api/courses').then(r=>r.json());
+    render(allCourses);
+}
+
+function filterCourses() {
+    const diff = document.getElementById('filterDiff').value;
+    render(diff ? allCourses.filter(c=>c.difficulty===diff) : allCourses);
+}
+
+function render(courses) {
+    const grid = document.getElementById('courseGrid');
+    if (!courses.length) { grid.innerHTML = '<div class="empty-courses"><p>No courses found.</p></div>'; return; }
+    grid.innerHTML = courses.map(c => `
+        <a href="/student/course/${c.id}" class="course-card">
+            <div class="course-thumb" style="background:linear-gradient(135deg,${c.thumbnail_color}25,${c.thumbnail_color}08);border-color:${c.thumbnail_color}33">
+                <div class="course-icon" style="color:${c.thumbnail_color};font-size:2.5rem">
+                    ${c.category==='Deep Learning'?'🤖':c.category==='NLP'?'💬':c.category==='Computer Vision'?'👁️':'📊'}
+                </div>
+                ${c.enrolled ? '<div class="enrolled-badge">✓ Enrolled</div>' : ''}
+            </div>
+            <div class="course-info">
+                <div class="course-meta-row">
+                    <span class="course-diff ${c.difficulty}">${c.difficulty}</span>
+                    <span class="course-cat">${c.category||'ML'}</span>
+                </div>
+                <h3>${c.title}</h3>
+                <p class="course-desc">${(c.description||'').slice(0,100)}...</p>
+                <div class="course-footer">
+                    <span class="course-instructor">👩‍🏫 ${c.educator_name||'Educator'}</span>
+                    <span class="course-lectures">📖 ${c.lecture_count||0} lectures</span>
+                </div>
+            </div>
+        </a>`).join('');
+}
+load();
+</script>
+{% endblock %}

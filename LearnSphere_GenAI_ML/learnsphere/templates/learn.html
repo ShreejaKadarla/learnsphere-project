@@ -1,0 +1,470 @@
+{% extends "base.html" %}
+{% block title %}Learn — LearnSphere{% endblock %}
+{% block content %}
+
+<div class="page-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-section">
+            <h3 class="sidebar-title">Topics</h3>
+            <div class="topic-list">
+                <button class="topic-btn" onclick="loadConcept('Linear Regression')">Linear Regression</button>
+                <button class="topic-btn" onclick="loadConcept('Logistic Regression')">Logistic Regression</button>
+                <button class="topic-btn" onclick="loadConcept('Decision Trees')">Decision Trees</button>
+                <button class="topic-btn" onclick="loadConcept('Random Forests')">Random Forests</button>
+                <button class="topic-btn" onclick="loadConcept('Neural Networks')">Neural Networks</button>
+                <button class="topic-btn" onclick="loadConcept('Convolutional Neural Networks')">CNN</button>
+                <button class="topic-btn" onclick="loadConcept('Recurrent Neural Networks')">RNN / LSTM</button>
+                <button class="topic-btn" onclick="loadConcept('K-Means Clustering')">K-Means Clustering</button>
+                <button class="topic-btn" onclick="loadConcept('Support Vector Machines')">SVM</button>
+                <button class="topic-btn" onclick="loadConcept('Gradient Descent')">Gradient Descent</button>
+                <button class="topic-btn" onclick="loadConcept('Backpropagation')">Backpropagation</button>
+                <button class="topic-btn" onclick="loadConcept('Overfitting and Underfitting')">Overfitting</button>
+                <button class="topic-btn" onclick="loadConcept('Cross Validation')">Cross Validation</button>
+                <button class="topic-btn" onclick="loadConcept('Feature Engineering')">Feature Engineering</button>
+                <button class="topic-btn" onclick="loadConcept('Transformers')">Transformers</button>
+                <button class="topic-btn" onclick="loadConcept('Reinforcement Learning')">Reinforcement Learning</button>
+                <button class="topic-btn" onclick="loadConcept('Principal Component Analysis')">PCA</button>
+                <button class="topic-btn" onclick="loadConcept('Naive Bayes')">Naive Bayes</button>
+            </div>
+        </div>
+
+        <div class="sidebar-section">
+            <h3 class="sidebar-title">AI Tutor Chat</h3>
+            <div class="chat-box" id="chatBox">
+                <div class="chat-msg ai">👋 Hi! I'm your LearnSphere AI tutor. Ask me anything about machine learning!</div>
+            </div>
+            <div class="chat-input-row">
+                <input type="text" id="chatInput" class="chat-input" placeholder="Ask anything..." 
+                       onkeydown="if(event.key==='Enter') sendChat()">
+                <button class="chat-send" onclick="sendChat()">→</button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="learn-main">
+        <!-- Search Bar -->
+        <div class="search-section">
+            <div class="search-bar">
+                <svg class="search-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <circle cx="9" cy="9" r="7" stroke="#00D4FF" stroke-width="1.5"/>
+                    <path d="m14 14 3 3" stroke="#00D4FF" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <input type="text" id="conceptInput" placeholder="Enter any ML concept... e.g. 'Explain Attention Mechanism'"
+                       class="search-input" onkeydown="if(event.key==='Enter') explainConcept()">
+                <button class="search-btn" onclick="explainConcept()">Explain</button>
+            </div>
+            <div class="mode-tabs">
+                <button class="mode-tab active" data-mode="full" onclick="setMode(this, 'full')">Full Explanation</button>
+                <button class="mode-tab" data-mode="simple" onclick="setMode(this, 'simple')">ELI5</button>
+                <button class="mode-tab" data-mode="technical" onclick="setMode(this, 'technical')">Technical</button>
+            </div>
+        </div>
+
+        <!-- Result Area -->
+        <div id="resultArea" class="result-area">
+            <div class="empty-state">
+                <div class="empty-icon">🧠</div>
+                <h2>What do you want to learn today?</h2>
+                <p>Type any ML concept above or pick a topic from the sidebar</p>
+            </div>
+        </div>
+
+        <!-- Suggestions -->
+        <div class="suggestions-section" id="suggestionsSection" style="display:none">
+            <h3>Recommended Next Topics</h3>
+            <div class="suggestion-grid" id="suggestionGrid"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentMode = 'full';
+let chatHistory = [];
+let currentConcept = '';
+
+// Check URL param
+const urlParams = new URLSearchParams(window.location.search);
+const qParam = urlParams.get('q');
+if (qParam) {
+    document.getElementById('conceptInput').value = qParam;
+    setTimeout(() => explainConcept(), 500);
+}
+
+function setMode(btn, mode) {
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = mode;
+}
+
+async function explainConcept() {
+    const concept = document.getElementById('conceptInput').value.trim();
+    if (!concept) return;
+    currentConcept = concept;
+    
+    document.getElementById('resultArea').innerHTML = `
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Analyzing <strong>${concept}</strong> and crafting your personalized explanation...</p>
+        </div>`;
+    document.getElementById('suggestionsSection').style.display = 'none';
+    
+    try {
+        const res = await fetch('/api/explain', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({concept, mode: currentMode})
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            renderExplanation(data.data, concept);
+            loadSuggestions();
+        } else {
+            showError(data.error);
+        }
+    } catch(e) {
+        showError(e.message);
+    }
+}
+
+async function loadConcept(concept) {
+    document.getElementById('conceptInput').value = concept;
+    await explainConcept();
+}
+
+function renderExplanation(d, concept) {
+    if (currentMode === 'simple') {
+        document.getElementById('resultArea').innerHTML = `
+            <div class="explanation-card animate-in">
+                <div class="card-header">
+                    <h2>${concept}</h2>
+                    <span class="badge badge-simple">ELI5 Mode</span>
+                </div>
+                <div class="explanation-text">${d.explanation}</div>
+                <div class="analogy-box">
+                    <span class="analogy-label">💡 Think of it like...</span>
+                    <p>${d.analogy}</p>
+                </div>
+                <div class="emoji-row">${d.emoji_summary || ''}</div>
+                <div class="card-actions">
+                    <button onclick="setMode(document.querySelector('[data-mode=full]'), 'full'); explainConcept()" class="btn btn-ghost">Full Explanation →</button>
+                </div>
+            </div>`;
+        return;
+    }
+
+    if (currentMode === 'technical') {
+        document.getElementById('resultArea').innerHTML = `
+            <div class="explanation-card animate-in">
+                <div class="card-header">
+                    <h2>${concept}</h2>
+                    <span class="badge badge-tech">Technical Mode</span>
+                </div>
+                <div class="explanation-text">${d.explanation || ''}</div>
+                ${d.mathematics ? `<div class="formula-box"><span class="formula-label">∑ Mathematics</span><div class="formula">${d.mathematics}</div></div>` : ''}
+                ${d.implementation_notes ? `<div class="info-box"><strong>Implementation Notes:</strong><p>${d.implementation_notes}</p></div>` : ''}
+                ${d.pitfalls ? `<div class="pitfalls-box"><strong>⚠ Common Pitfalls:</strong><ul>${d.pitfalls.map(p => `<li>${p}</li>`).join('')}</ul></div>` : ''}
+            </div>`;
+        return;
+    }
+
+    // Full mode
+    const hasQuiz = d.quiz_question;
+    document.getElementById('resultArea').innerHTML = `
+        <div class="explanation-card animate-in">
+            <!-- Header -->
+            <div class="card-header">
+                <div>
+                    <h2>${d.title || concept}</h2>
+                    <span class="badge badge-${d.difficulty || 'beginner'}">${d.difficulty || 'Beginner'}</span>
+                </div>
+                <div class="header-actions">
+                    <button class="icon-btn" onclick="generateDiagram('${concept}', '${(d.visual_description || '').replace(/'/g, "")}')" title="Generate Diagram">
+                        🎨 Diagram
+                    </button>
+                    <button class="icon-btn" onclick="generateAudio('${concept}', '${(d.simple_explanation || '').replace(/'/g, "\\'")}')">
+                        🔊 Audio
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="result-tabs">
+                <button class="result-tab active" onclick="switchResultTab(this, 'explanation-tab')">Explanation</button>
+                <button class="result-tab" onclick="switchResultTab(this, 'example-tab')">Example</button>
+                ${d.formula ? '<button class="result-tab" onclick="switchResultTab(this, \'formula-tab\')">Formula</button>' : ''}
+                <button class="result-tab" onclick="switchResultTab(this, 'code-tab')">Code</button>
+                ${hasQuiz ? '<button class="result-tab" onclick="switchResultTab(this, \'quiz-tab\')">Quiz</button>' : ''}
+                <button class="result-tab" onclick="switchResultTab(this, 'diagram-tab')">Diagram</button>
+            </div>
+
+            <!-- Tab Content -->
+            <div id="explanation-tab" class="tab-content active">
+                <div class="simple-box">
+                    <div class="simple-label">🌟 In Simple Terms</div>
+                    <p>${d.simple_explanation || ''}</p>
+                </div>
+                <div class="detailed-text">${d.detailed_explanation || ''}</div>
+                ${d.key_points ? `
+                <div class="key-points">
+                    <h4>Key Points</h4>
+                    <div class="points-grid">
+                        ${d.key_points.map((p,i) => `<div class="point-card"><span class="point-num">${i+1}</span><span>${p}</span></div>`).join('')}
+                    </div>
+                </div>` : ''}
+                ${d.related_topics ? `
+                <div class="related-topics">
+                    <h4>Related Topics</h4>
+                    ${d.related_topics.map(t => `<button class="topic-chip" onclick="loadConcept('${t}')">${t}</button>`).join('')}
+                </div>` : ''}
+            </div>
+
+            <div id="example-tab" class="tab-content">
+                <div class="example-content">
+                    <h4>Real-World Example</h4>
+                    <p>${d.real_world_example || 'No example available.'}</p>
+                </div>
+            </div>
+
+            ${d.formula ? `
+            <div id="formula-tab" class="tab-content">
+                <div class="formula-box">
+                    <div class="formula-label">Mathematical Formula</div>
+                    <div class="formula-display">${d.formula}</div>
+                </div>
+            </div>` : ''}
+
+            <div id="code-tab" class="tab-content">
+                <div class="code-header">
+                    <span>Python Implementation</span>
+                    <button onclick="copyCode(this)" class="copy-btn">Copy</button>
+                </div>
+                <pre><code class="language-python">${escapeHtml(d.code_example || '# No code available')}</code></pre>
+            </div>
+
+            ${hasQuiz ? `
+            <div id="quiz-tab" class="tab-content">
+                <div class="quiz-box">
+                    <h4>🧪 Quick Quiz</h4>
+                    <p class="quiz-q">${d.quiz_question}</p>
+                    <div class="quiz-options">
+                        ${(d.quiz_options || []).map((opt, i) => `
+                            <button class="quiz-opt" onclick="checkQuiz(this, '${String.fromCharCode(65+i)}', '${d.quiz_answer}', '${concept}')">${opt}</button>
+                        `).join('')}
+                    </div>
+                    <div id="quizResult" class="quiz-result"></div>
+                </div>
+            </div>` : ''}
+
+            <div id="diagram-tab" class="tab-content">
+                <div id="diagramContainer" class="diagram-container">
+                    <div class="diagram-placeholder">
+                        <p>Click <strong>🎨 Diagram</strong> button above to generate a visual diagram</p>
+                    </div>
+                </div>
+                <div id="audioContainer"></div>
+            </div>
+        </div>`;
+
+    // Highlight code
+    document.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
+}
+
+function switchResultTab(btn, tabId) {
+    document.querySelectorAll('.result-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = document.getElementById(tabId);
+    if (tab) tab.classList.add('active');
+}
+
+async function generateDiagram(concept, visualDesc) {
+    document.getElementById('diagramContainer').innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Generating diagram...</p></div>`;
+    switchResultTab(document.querySelector('.result-tab:last-of-type'), 'diagram-tab');
+    
+    try {
+        const res = await fetch('/api/generate_diagram', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({concept, visual_description: visualDesc})
+        });
+        const data = await res.json();
+        if (data.success) renderDiagram(data.data);
+    } catch(e) {
+        document.getElementById('diagramContainer').innerHTML = '<p class="error-text">Failed to generate diagram</p>';
+    }
+}
+
+function renderDiagram(d) {
+    const colors = ['#00D4FF', '#7C3AED', '#10B981', '#F59E0B', '#EF4444', '#EC4899'];
+    const nodes = d.nodes || [];
+    const edges = d.edges || [];
+    
+    let svg = `<svg width="100%" height="420" viewBox="0 0 800 420" style="background: rgba(0,0,0,0.3); border-radius: 12px;">`;
+    svg += `<text x="400" y="30" text-anchor="middle" fill="#00D4FF" font-size="16" font-family="Syne" font-weight="600">${d.title || ''}</text>`;
+    
+    // Draw edges first
+    edges.forEach(e => {
+        const from = nodes.find(n => n.id == e.from);
+        const to = nodes.find(n => n.id == e.to);
+        if (from && to) {
+            svg += `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="#00D4FF" stroke-width="1.5" stroke-opacity="0.5" marker-end="url(#arrow)"/>`;
+            if (e.label) {
+                const mx = (from.x + to.x) / 2;
+                const my = (from.y + to.y) / 2;
+                svg += `<text x="${mx}" y="${my-5}" text-anchor="middle" fill="#94A3B8" font-size="10" font-family="Space Grotesk">${e.label}</text>`;
+            }
+        }
+    });
+    
+    // Draw nodes
+    nodes.forEach((n, i) => {
+        const color = n.color || colors[i % colors.length];
+        const label = n.label || n.id;
+        const words = label.split(' ');
+        svg += `<circle cx="${n.x}" cy="${n.y}" r="30" fill="${color}22" stroke="${color}" stroke-width="1.5"/>`;
+        words.forEach((w, wi) => {
+            svg += `<text x="${n.x}" y="${n.y + wi*12 - (words.length-1)*6}" text-anchor="middle" fill="${color}" font-size="10" font-family="Space Grotesk" font-weight="500">${w}</text>`;
+        });
+    });
+    
+    svg += `<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#00D4FF" opacity="0.5"/></marker></defs>`;
+    svg += `</svg>`;
+    svg += `<p style="color:#64748b;font-size:0.85rem;margin-top:0.75rem">${d.description || ''}</p>`;
+    
+    document.getElementById('diagramContainer').innerHTML = svg;
+}
+
+async function generateAudio(concept, explanation) {
+    const audioContainer = document.getElementById('audioContainer');
+    audioContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Generating audio script...</p></div>`;
+    
+    try {
+        const res = await fetch('/api/audio_script', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({concept, explanation})
+        });
+        const data = await res.json();
+        if (data.success) {
+            const script = data.data.script;
+            audioContainer.innerHTML = `
+                <div class="audio-box">
+                    <div class="audio-header">
+                        <span>🔊 Audio Script — ${concept}</span>
+                        <button class="play-btn" onclick="speakText(this, '${script.replace(/'/g, "\\'")}')">▶ Play</button>
+                    </div>
+                    <p class="audio-script">${script}</p>
+                </div>`;
+        }
+    } catch(e) {}
+}
+
+function speakText(btn, text) {
+    if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+        btn.textContent = '▶ Play';
+        return;
+    }
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 0.9;
+    utter.pitch = 1;
+    utter.onend = () => { btn.textContent = '▶ Play'; };
+    btn.textContent = '⏹ Stop';
+    window.speechSynthesis.speak(utter);
+}
+
+async function checkQuiz(btn, selected, correct, topic) {
+    document.querySelectorAll('.quiz-opt').forEach(b => b.disabled = true);
+    const res = await fetch('/api/quiz_check', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({answer: selected, correct, topic})
+    });
+    const data = await res.json();
+    btn.classList.add(data.correct ? 'correct' : 'wrong');
+    if (!data.correct) {
+        document.querySelectorAll('.quiz-opt').forEach(b => {
+            if (b.textContent.startsWith(correct)) b.classList.add('correct');
+        });
+    }
+    document.getElementById('quizResult').textContent = data.message;
+    document.getElementById('quizResult').className = `quiz-result ${data.correct ? 'correct' : 'wrong'}`;
+}
+
+async function loadSuggestions() {
+    const res = await fetch('/api/suggest_topics');
+    const data = await res.json();
+    if (data.success) {
+        const grid = document.getElementById('suggestionGrid');
+        grid.innerHTML = data.data.suggestions.map(s => `
+            <div class="suggestion-card" onclick="loadConcept('${s.topic}')">
+                <div class="sug-difficulty ${s.difficulty}">${s.difficulty}</div>
+                <strong>${s.topic}</strong>
+                <p>${s.reason}</p>
+            </div>`).join('');
+        document.getElementById('suggestionsSection').style.display = 'block';
+    }
+}
+
+// Chat
+async function sendChat() {
+    const input = document.getElementById('chatInput');
+    const msg = input.value.trim();
+    if (!msg) return;
+    input.value = '';
+    
+    addChatMsg('user', msg);
+    chatHistory.push({role: 'user', content: msg});
+    
+    addChatMsg('ai', '...');
+    
+    const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: msg, history: chatHistory})
+    });
+    const data = await res.json();
+    
+    const chatBox = document.getElementById('chatBox');
+    chatBox.lastChild.remove();
+    
+    const response = data.success ? data.response : 'Sorry, I encountered an error.';
+    addChatMsg('ai', response);
+    chatHistory.push({role: 'assistant', content: response});
+}
+
+function addChatMsg(role, text) {
+    const chatBox = document.getElementById('chatBox');
+    const div = document.createElement('div');
+    div.className = `chat-msg ${role}`;
+    div.textContent = text;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function copyCode(btn) {
+    const code = btn.closest('.explanation-card').querySelector('code');
+    navigator.clipboard.writeText(code.textContent);
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 2000);
+}
+
+function escapeHtml(text) {
+    return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showError(msg) {
+    document.getElementById('resultArea').innerHTML = `
+        <div class="error-card">
+            <div class="error-icon">⚠️</div>
+            <h3>Something went wrong</h3>
+            <p>${msg}</p>
+            <p class="error-hint">Check that your GROQ_API_KEY is set. Get a free key at <a href="https://console.groq.com" target="_blank" style="color:#00D4FF">console.groq.com</a></p>
+            <button onclick="explainConcept()" class="btn btn-ghost" style="margin-top:1rem">↺ Try Again</button>
+        </div>`;
+}
+</script>
+{% endblock %}

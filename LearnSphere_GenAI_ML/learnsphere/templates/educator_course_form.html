@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Course Form — LearnSphere{% endblock %}
+{% block content %}
+<div class="page-wrap form-page">
+    <div class="page-header">
+        <div><h1 class="page-title" id="formTitle">Create New Course</h1><p class="page-sub">Fill in the course details</p></div>
+        <a href="/educator/courses" class="btn btn-ghost">← Back</a>
+    </div>
+
+    <div class="form-card">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Course Title *</label>
+                <input type="text" id="title" placeholder="e.g. Machine Learning Fundamentals" class="form-input">
+            </div>
+            <div class="form-group">
+                <label>Category</label>
+                <select id="category" class="form-input">
+                    <option>Machine Learning</option><option>Deep Learning</option><option>NLP</option>
+                    <option>Computer Vision</option><option>Reinforcement Learning</option><option>Data Science</option>
+                </select>
+            </div>
+            <div class="form-group full">
+                <label>Description</label>
+                <textarea id="description" class="form-input form-textarea" placeholder="Describe what students will learn..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Difficulty Level</label>
+                <select id="difficulty" class="form-input">
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Card Color</label>
+                <div class="color-pick">
+                    <div class="color-opt active" data-color="#00D4FF" style="background:#00D4FF" onclick="pickColor(this)"></div>
+                    <div class="color-opt" data-color="#7C3AED" style="background:#7C3AED" onclick="pickColor(this)"></div>
+                    <div class="color-opt" data-color="#10B981" style="background:#10B981" onclick="pickColor(this)"></div>
+                    <div class="color-opt" data-color="#F59E0B" style="background:#F59E0B" onclick="pickColor(this)"></div>
+                    <div class="color-opt" data-color="#EF4444" style="background:#EF4444" onclick="pickColor(this)"></div>
+                    <div class="color-opt" data-color="#EC4899" style="background:#EC4899" onclick="pickColor(this)"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="errMsg" class="error-msg-form"></div>
+        <div class="form-actions">
+            <a href="/educator/courses" class="btn btn-ghost">Cancel</a>
+            <button onclick="saveCourse()" class="btn btn-primary" id="saveBtn">Save Course</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const courseId = '{{ course_id }}';
+let selectedColor = '#00D4FF';
+
+function pickColor(el) {
+    document.querySelectorAll('.color-opt').forEach(c=>c.classList.remove('active'));
+    el.classList.add('active');
+    selectedColor = el.dataset.color;
+}
+
+async function loadCourse() {
+    if (!courseId || courseId==='None') return;
+    document.getElementById('formTitle').textContent = 'Edit Course';
+    const data = await fetch(`/api/courses/${courseId}`).then(r=>r.json());
+    const c = data.course;
+    document.getElementById('title').value = c.title || '';
+    document.getElementById('category').value = c.category || 'Machine Learning';
+    document.getElementById('description').value = c.description || '';
+    document.getElementById('difficulty').value = c.difficulty || 'beginner';
+    selectedColor = c.thumbnail_color || '#00D4FF';
+    document.querySelectorAll('.color-opt').forEach(el => el.classList.toggle('active', el.dataset.color===selectedColor));
+}
+
+async function saveCourse() {
+    const title = document.getElementById('title').value.trim();
+    const errEl = document.getElementById('errMsg');
+    if (!title) { errEl.textContent='Title is required'; errEl.style.display='block'; return; }
+    errEl.style.display='none';
+    const btn = document.getElementById('saveBtn');
+    btn.textContent='Saving...'; btn.disabled=true;
+    const payload = {
+        title, description:document.getElementById('description').value,
+        category:document.getElementById('category').value,
+        difficulty:document.getElementById('difficulty').value,
+        thumbnail_color:selectedColor
+    };
+    let res;
+    if (courseId && courseId!=='None') {
+        res = await fetch(`/api/courses/${courseId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    } else {
+        res = await fetch('/api/courses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    }
+    const data = await res.json();
+    if (data.success) {
+        window.location = courseId && courseId!=='None' ? `/educator/course/${courseId}/lectures` : `/educator/course/${data.id}/lectures`;
+    } else {
+        errEl.textContent=data.error||'Error saving'; errEl.style.display='block';
+        btn.textContent='Save Course'; btn.disabled=false;
+    }
+}
+loadCourse();
+</script>
+{% endblock %}
